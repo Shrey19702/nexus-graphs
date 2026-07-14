@@ -1,0 +1,7 @@
+.DS_Store
+.vercel
+node_modules/
+
+# Unused root copies (apps load CSVs from their own folders)
+/CJP-SEARCH-RESULTS - l1-iteration-1-all.csv
+/CJP-SEARCH-RESULTS - l1-iteration-1-sentiment.csv

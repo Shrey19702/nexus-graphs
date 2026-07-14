@@ -1,0 +1,100 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  width: 100%;
+  min-height: 100%;
+}
+
+body {
+  display: grid;
+  place-items: center;
+  padding: 32px 20px;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% -10%, #e2e8f0 0%, transparent 55%),
+    #f8fafc;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  color: #000000;
+}
+
+.hub {
+  width: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.hub-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hub-kicker {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.hub-title {
+  font-size: 28px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.hub-sub {
+  font-size: 14px;
+  color: #64748b;
+}
+
+.hub-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hub-link {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 18px;
+  text-decoration: none;
+  color: inherit;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    transform 0.15s ease;
+}
+
+.hub-link:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  transform: translateY(-1px);
+}
+
+.hub-link:focus-visible {
+  outline: 2px solid #0f172a;
+  outline-offset: 2px;
+}
+
+.hub-link-label {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.hub-link-desc {
+  font-size: 13px;
+  color: #64748b;
+}

@@ -1,0 +1,1301 @@
+{
+  "directed": false,
+  "multigraph": false,
+  "graph": {},
+  "nodes": [
+    {
+      "id": "Platform: X",
+      "type": "mega_node",
+      "label": "Platform: X"
+    },
+    {
+      "id": "https://x.com/AMIT_GUJJU",
+      "type": "regular_node",
+      "label": "AMIT_GUJJU",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/ANI",
+      "type": "regular_node",
+      "label": "ANI",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/AdityaRajKaul",
+      "type": "regular_node",
+      "label": "AdityaRajKaul",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/Alpakanya",
+      "type": "regular_node",
+      "label": "Alpakanya",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/AlternateMediaX",
+      "type": "regular_node",
+      "label": "AlternateMediaX",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/AmarUjalaNews",
+      "type": "regular_node",
+      "label": "AmarUjalaNews",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/AmitLeliSlayer",
+      "type": "regular_node",
+      "label": "AmitLeliSlayer",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/AugadhBhudeva",
+      "type": "regular_node",
+      "label": "AugadhBhudeva",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/BJP4CGState",
+      "type": "regular_node",
+      "label": "BJP4CGState",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/BharatEquator",
+      "type": "regular_node",
+      "label": "BharatEquator",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/CJPAssam_",
+      "type": "regular_node",
+      "label": "CJPAssam_",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/CJP_for_India",
+      "type": "regular_node",
+      "label": "CJP_for_India",
+      "category": "hub"
+    },
+    {
+      "id": "https://x.com/CJP_is_back",
+      "type": "regular_node",
+      "label": "CJP_is_back",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/CMMadhyaPradesh",
+      "type": "regular_node",
+      "label": "CMMadhyaPradesh",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/CMOfficeAssam",
+      "type": "regular_node",
+      "label": "CMOfficeAssam",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/CNNnews18",
+      "type": "regular_node",
+      "label": "CNNnews18",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/Cockroachisback",
+      "type": "regular_node",
+      "label": "Cockroachisback",
+      "category": "hub"
+    },
+    {
+      "id": "https://x.com/DNHindi",
+      "type": "regular_node",
+      "label": "DNHindi",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/DY365",
+      "type": "regular_node",
+      "label": "DY365",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/Dear_Men_Life",
+      "type": "regular_node",
+      "label": "Dear_Men_Life",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/DeccanChronicle",
+      "type": "regular_node",
+      "label": "DeccanChronicle",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/DeccanHerald",
+      "type": "regular_node",
+      "label": "DeccanHerald",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/DelhiIsNotFar",
+      "type": "regular_node",
+      "label": "DelhiIsNotFar",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/DelhiPolice",
+      "type": "regular_node",
+      "label": "DelhiPolice",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/Desh_bhakati",
+      "type": "regular_node",
+      "label": "Desh_bhakati",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/Drek007",
+      "type": "regular_node",
+      "label": "Drek007",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/ETVBharatDelhi",
+      "type": "regular_node",
+      "label": "ETVBharatDelhi",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/ETVBharatEng",
+      "type": "regular_node",
+      "label": "ETVBharatEng",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/EcholesBySushil",
+      "type": "regular_node",
+      "label": "EcholesBySushil",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/EconomicTimes",
+      "type": "regular_node",
+      "label": "EconomicTimes",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/EdgeNewsIN",
+      "type": "regular_node",
+      "label": "EdgeNewsIN",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/FinancialXpress",
+      "type": "regular_node",
+      "label": "FinancialXpress",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/FoejMedia",
+      "type": "regular_node",
+      "label": "FoejMedia",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/GenAzaad",
+      "type": "regular_node",
+      "label": "GenAzaad",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/GenZ_of_India_",
+      "type": "regular_node",
+      "label": "GenZ_of_India_",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/GhazalThakur",
+      "type": "regular_node",
+      "label": "GhazalThakur",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/GreaterKashmir",
+      "type": "regular_node",
+      "label": "GreaterKashmir",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/HCP_2026",
+      "type": "regular_node",
+      "label": "HCP_2026",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/HateDetectors",
+      "type": "regular_node",
+      "label": "HateDetectors",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/I_AM_TABREZz",
+      "type": "regular_node",
+      "label": "I_AM_TABREZz",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/Iam_Rohit_G",
+      "type": "regular_node",
+      "label": "Iam_Rohit_G",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/IndiaToday",
+      "type": "regular_node",
+      "label": "IndiaToday",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/IndianExpress",
+      "type": "regular_node",
+      "label": "IndianExpress",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/Indian_Analyzer",
+      "type": "regular_node",
+      "label": "Indian_Analyzer",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/JKNC_",
+      "type": "regular_node",
+      "label": "JKNC_",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/JagranNews",
+      "type": "regular_node",
+      "label": "JagranNews",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/KT62779984",
+      "type": "regular_node",
+      "label": "KT62779984",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/KumarRahul797",
+      "type": "regular_node",
+      "label": "KumarRahul797",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/Kumarjyoti49291",
+      "type": "regular_node",
+      "label": "Kumarjyoti49291",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/LiveLawIndia",
+      "type": "regular_node",
+      "label": "LiveLawIndia",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/MeghUpdates",
+      "type": "regular_node",
+      "label": "MeghUpdates",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/MithilaWaaala",
+      "type": "regular_node",
+      "label": "MithilaWaaala",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/MrSandeepPhogat",
+      "type": "regular_node",
+      "label": "MrSandeepPhogat",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/NEWSPOPFFF",
+      "type": "regular_node",
+      "label": "NEWSPOPFFF",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/Nehaagg51737128",
+      "type": "regular_node",
+      "label": "Nehaagg51737128",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/NewsAlgebraIND",
+      "type": "regular_node",
+      "label": "NewsAlgebraIND",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/NewsArenaIndia",
+      "type": "regular_node",
+      "label": "NewsArenaIndia",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/NortheastToday",
+      "type": "regular_node",
+      "label": "NortheastToday",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/NotKanjusBaniya",
+      "type": "regular_node",
+      "label": "NotKanjusBaniya",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/OnRecordIndia",
+      "type": "regular_node",
+      "label": "OnRecordIndia",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/Oneindia",
+      "type": "regular_node",
+      "label": "Oneindia",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/OpIndia_com",
+      "type": "regular_node",
+      "label": "OpIndia_com",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/PTI_News",
+      "type": "regular_node",
+      "label": "PTI_News",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/ParasKGhelaanii",
+      "type": "regular_node",
+      "label": "ParasKGhelaanii",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/Resonant_News",
+      "type": "regular_node",
+      "label": "Resonant_News",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/SMungantiwar",
+      "type": "regular_node",
+      "label": "SMungantiwar",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/SaffronChargers",
+      "type": "regular_node",
+      "label": "SaffronChargers",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/SauravDassss",
+      "type": "regular_node",
+      "label": "SauravDassss",
+      "category": "hub"
+    },
+    {
+      "id": "https://x.com/ShravanSRP",
+      "type": "regular_node",
+      "label": "ShravanSRP",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/SouleFacts",
+      "type": "regular_node",
+      "label": "SouleFacts",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/SouthEraNetwork",
+      "type": "regular_node",
+      "label": "SouthEraNetwork",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/TeestaSetalvad",
+      "type": "regular_node",
+      "label": "TeestaSetalvad",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/TheBharatPost__",
+      "type": "regular_node",
+      "label": "TheBharatPost__",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/TheDailyJagran",
+      "type": "regular_node",
+      "label": "TheDailyJagran",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/TheFederal_News",
+      "type": "regular_node",
+      "label": "TheFederal_News",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/TheNewspinch",
+      "type": "regular_node",
+      "label": "TheNewspinch",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/TheObserverPost",
+      "type": "regular_node",
+      "label": "TheObserverPost",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/TimesNow",
+      "type": "regular_node",
+      "label": "TimesNow",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/Wangchuk66",
+      "type": "regular_node",
+      "label": "Wangchuk66",
+      "category": "hub"
+    },
+    {
+      "id": "https://x.com/_Vartalaap_",
+      "type": "regular_node",
+      "label": "_Vartalaap_",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/aajtak",
+      "type": "regular_node",
+      "label": "aajtak",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/abhijeet_dipke",
+      "type": "regular_node",
+      "label": "abhijeet_dipke",
+      "category": "hub"
+    },
+    {
+      "id": "https://x.com/assamtribuneoff",
+      "type": "regular_node",
+      "label": "assamtribuneoff",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/barandbench",
+      "type": "regular_node",
+      "label": "barandbench",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/dblive15",
+      "type": "regular_node",
+      "label": "dblive15",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/dna",
+      "type": "regular_node",
+      "label": "dna",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/hnpnewz",
+      "type": "regular_node",
+      "label": "hnpnewz",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/htTweets",
+      "type": "regular_node",
+      "label": "htTweets",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/iAtulKrishan1",
+      "type": "regular_node",
+      "label": "iAtulKrishan1",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/ians_india",
+      "type": "regular_node",
+      "label": "ians_india",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/indiangovtjobs",
+      "type": "regular_node",
+      "label": "indiangovtjobs",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/janpathnewsnet",
+      "type": "regular_node",
+      "label": "janpathnewsnet",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/jayanta_malla",
+      "type": "regular_node",
+      "label": "jayanta_malla",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/jignesh03011976",
+      "type": "regular_node",
+      "label": "jignesh03011976",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/krrpraful",
+      "type": "regular_node",
+      "label": "krrpraful",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/lacmediahouse",
+      "type": "regular_node",
+      "label": "lacmediahouse",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/ndtv",
+      "type": "regular_node",
+      "label": "ndtv",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/np_nationpress",
+      "type": "regular_node",
+      "label": "np_nationpress",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/pooja_news",
+      "type": "regular_node",
+      "label": "pooja_news",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/sharma_views",
+      "type": "regular_node",
+      "label": "sharma_views",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/shemin_joy",
+      "type": "regular_node",
+      "label": "shemin_joy",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/the_hindu",
+      "type": "regular_node",
+      "label": "the_hindu",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/thepagetody",
+      "type": "regular_node",
+      "label": "thepagetody",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/thepressmv",
+      "type": "regular_node",
+      "label": "thepressmv",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/thetribunechd",
+      "type": "regular_node",
+      "label": "thetribunechd",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/timesofindia",
+      "type": "regular_node",
+      "label": "timesofindia",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/ttindia",
+      "type": "regular_node",
+      "label": "ttindia",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/uniindianews",
+      "type": "regular_node",
+      "label": "uniindianews",
+      "category": "general"
+    },
+    {
+      "id": "https://x.com/vermadhanesh",
+      "type": "regular_node",
+      "label": "vermadhanesh",
+      "category": "promoter"
+    },
+    {
+      "id": "https://x.com/whattalawyer",
+      "type": "regular_node",
+      "label": "whattalawyer",
+      "category": "hub"
+    },
+    {
+      "id": "https://x.com/memeghnad",
+      "type": "regular_node",
+      "label": "memeghnad",
+      "category": "hub"
+    },
+    {
+      "id": "https://x.com/atul_kulkarni",
+      "type": "regular_node",
+      "label": "atul_kulkarni",
+      "category": "hub"
+    },
+    {
+      "id": "https://x.com/AshutoshRanka",
+      "type": "regular_node",
+      "label": "AshutoshRanka",
+      "category": "hub"
+    },
+    {
+      "id": "https://x.com/Cockroach4India",
+      "type": "regular_node",
+      "label": "Cockroach4India",
+      "category": "hub"
+    },
+    {
+      "id": "https://x.com/CJP_2029",
+      "type": "regular_node",
+      "label": "CJP_2029",
+      "category": "hub"
+    },
+    {
+      "id": "https://x.com/prakashraaj",
+      "type": "regular_node",
+      "label": "prakashraaj",
+      "category": "hub"
+    },
+    {
+      "id": "https://x.com/iArpitSpeaks",
+      "type": "regular_node",
+      "label": "iArpitSpeaks",
+      "category": "hub"
+    }
+  ],
+  "links": [
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/AMIT_GUJJU",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/ANI",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/AdityaRajKaul",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/Alpakanya",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/AlternateMediaX",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/AmarUjalaNews",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/AmitLeliSlayer",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/AugadhBhudeva",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/BJP4CGState",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/BharatEquator",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/CJPAssam_",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/CJP_for_India",
+      "distance": 1
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/CJP_is_back",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/CMMadhyaPradesh",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/CMOfficeAssam",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/CNNnews18",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/Cockroachisback",
+      "distance": 1
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/DNHindi",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/DY365",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/Dear_Men_Life",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/DeccanChronicle",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/DeccanHerald",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/DelhiIsNotFar",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/DelhiPolice",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/Desh_bhakati",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/Drek007",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/ETVBharatDelhi",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/ETVBharatEng",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/EcholesBySushil",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/EconomicTimes",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/EdgeNewsIN",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/FinancialXpress",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/FoejMedia",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/GenAzaad",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/GenZ_of_India_",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/GhazalThakur",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/GreaterKashmir",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/HCP_2026",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/HateDetectors",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/I_AM_TABREZz",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/Iam_Rohit_G",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/IndiaToday",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/IndianExpress",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/Indian_Analyzer",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/JKNC_",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/JagranNews",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/KT62779984",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/KumarRahul797",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/Kumarjyoti49291",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/LiveLawIndia",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/MeghUpdates",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/MithilaWaaala",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/MrSandeepPhogat",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/NEWSPOPFFF",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/Nehaagg51737128",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/NewsAlgebraIND",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/NewsArenaIndia",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/NortheastToday",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/NotKanjusBaniya",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/OnRecordIndia",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/Oneindia",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/OpIndia_com",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/PTI_News",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/ParasKGhelaanii",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/Resonant_News",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/SMungantiwar",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/SaffronChargers",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/SauravDassss",
+      "distance": 1
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/ShravanSRP",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/SouleFacts",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/SouthEraNetwork",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/TeestaSetalvad",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/TheBharatPost__",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/TheDailyJagran",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/TheFederal_News",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/TheNewspinch",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/TheObserverPost",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/TimesNow",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/Wangchuk66",
+      "distance": 1
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/_Vartalaap_",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/aajtak",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/abhijeet_dipke",
+      "distance": 1
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/assamtribuneoff",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/barandbench",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/dblive15",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/dna",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/hnpnewz",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/htTweets",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/iAtulKrishan1",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/ians_india",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/indiangovtjobs",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/janpathnewsnet",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/jayanta_malla",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/jignesh03011976",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/krrpraful",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/lacmediahouse",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/ndtv",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/np_nationpress",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/pooja_news",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/sharma_views",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/shemin_joy",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/the_hindu",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/thepagetody",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/thepressmv",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/thetribunechd",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/timesofindia",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/ttindia",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/uniindianews",
+      "distance": 3
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/vermadhanesh",
+      "distance": 2
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/whattalawyer",
+      "distance": 1
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/memeghnad",
+      "distance": 1
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/atul_kulkarni",
+      "distance": 1
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/AshutoshRanka",
+      "distance": 1
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/Cockroach4India",
+      "distance": 1
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/CJP_2029",
+      "distance": 1
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/prakashraaj",
+      "distance": 1
+    },
+    {
+      "source": "Platform: X",
+      "target": "https://x.com/iArpitSpeaks",
+      "distance": 1
+    }
+  ]
+}

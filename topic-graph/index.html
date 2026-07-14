@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Subtopic Graph</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+</head>
+<body>
+  <div id="chrome">
+    <div id="chrome-left">
+      <a href="../" class="chrome-home" aria-label="All graphs">Nexus</a>
+      <nav class="view-nav" aria-label="Graph views">
+        <a href="../platform-profiles/" class="view-nav-link">Profiles</a>
+        <a href="../topic-graph/" class="view-nav-link is-active" aria-current="page">Subtopics</a>
+      </nav>
+    </div>
+    <div id="chrome-right">
+      <button type="button" id="fit-view" class="chrome-btn">Fit to view</button>
+      <span id="zoom-label">100%</span>
+    </div>
+  </div>
+  <canvas id="graph"></canvas>
+  <aside id="panel" class="panel" hidden aria-hidden="true">
+    <div class="panel-header">
+      <h2 id="panel-title" class="panel-title">Details</h2>
+      <button type="button" id="panel-close" class="panel-close" aria-label="Close panel">×</button>
+    </div>
+    <div id="panel-body" class="panel-body"></div>
+  </aside>
+  <script src="app.js"></script>
+</body>
+</html>

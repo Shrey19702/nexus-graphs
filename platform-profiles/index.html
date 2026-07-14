@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Platform Profiles Graph</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+</head>
+<body>
+  <div id="chrome">
+    <div id="chrome-left">
+      <a href="../" class="chrome-home" aria-label="All graphs">Nexus</a>
+      <nav class="view-nav" aria-label="Graph views">
+        <a href="../platform-profiles/" class="view-nav-link is-active" aria-current="page">Profiles</a>
+        <a href="../topic-graph/" class="view-nav-link">Subtopics</a>
+      </nav>
+    </div>
+    <div id="chrome-right">
+      <button type="button" id="fit-view" class="chrome-btn">Fit to view</button>
+      <button type="button" id="settings-toggle" class="chrome-btn" aria-expanded="false" aria-controls="settings">
+        Settings
+      </button>
+      <span id="zoom-label">100%</span>
+    </div>
+  </div>
+  <aside id="settings" class="settings" hidden aria-label="Graph settings">
+    <div class="settings-header">
+      <h2 class="settings-title">Settings</h2>
+      <button type="button" id="settings-close" class="panel-close" aria-label="Close settings">×</button>
+    </div>
+    <div class="settings-body">
+      <section class="settings-section">
+        <h3 class="settings-section-title">Base</h3>
+        <div class="setting-row" data-key="distanceUnit">
+          <label class="setting-label" for="set-distanceUnit">Distance</label>
+          <input type="range" id="set-distanceUnit" min="10" max="100" step="1" />
+          <input type="number" id="num-distanceUnit" min="10" max="100" step="1" />
+        </div>
+        <div class="setting-row" data-key="profileSize">
+          <label class="setting-label" for="set-profileSize">Size</label>
+          <input type="range" id="set-profileSize" min="1" max="12" step="0.1" />
+          <input type="number" id="num-profileSize" min="1" max="12" step="0.1" />
+        </div>
+      </section>
+      <section class="settings-section">
+        <h3 class="settings-section-title">Jitter (±%)</h3>
+        <div class="setting-row" data-key="jitterAll">
+          <label class="setting-label" for="set-jitterAll">All</label>
+          <input type="range" id="set-jitterAll" min="0" max="50" step="1" />
+          <input type="number" id="num-jitterAll" min="0" max="50" step="1" />
+        </div>
+        <div class="setting-row" data-key="distanceJitter">
+          <label class="setting-label" for="set-distanceJitter">Distance</label>
+          <input type="range" id="set-distanceJitter" min="0" max="50" step="1" />
+          <input type="number" id="num-distanceJitter" min="0" max="50" step="1" />
+        </div>
+        <div class="setting-row" data-key="angleJitter">
+          <label class="setting-label" for="set-angleJitter">Angle</label>
+          <input type="range" id="set-angleJitter" min="0" max="50" step="1" />
+          <input type="number" id="num-angleJitter" min="0" max="50" step="1" />
+        </div>
+        <div class="setting-row" data-key="sizeJitter">
+          <label class="setting-label" for="set-sizeJitter">Size</label>
+          <input type="range" id="set-sizeJitter" min="0" max="50" step="1" />
+          <input type="number" id="num-sizeJitter" min="0" max="50" step="1" />
+        </div>
+      </section>
+      <div class="settings-actions">
+        <button type="button" id="settings-reshuffle" class="settings-btn">Reshuffle</button>
+        <button type="button" id="settings-reset" class="settings-btn settings-btn-muted">Reset</button>
+      </div>
+    </div>
+  </aside>
+  <canvas id="graph"></canvas>
+  <aside id="panel" class="panel" hidden aria-hidden="true">
+    <div class="panel-header">
+      <h2 id="panel-title" class="panel-title">Details</h2>
+      <button type="button" id="panel-close" class="panel-close" aria-label="Close panel">×</button>
+    </div>
+    <div id="panel-body" class="panel-body"></div>
+  </aside>
+  <script src="app.js?v=ring-pack-3"></script>
+</body>
+</html>
