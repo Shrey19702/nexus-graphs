@@ -75,7 +75,7 @@ Dense rings (e.g. 69 generals) are split across a few close lanes inside the ban
 
 Sentiment CSV is the primary sheet; `profile_url` was merged in from the all-results sheet (empty when missing). Posts attach to profiles by normalized `profile_url` ↔ profile node id.
 
-Click a profile to see stance distribution + post list (same pattern as topic-graph narratives). Linked posts also appear as stance-colored satellites around the profile; click a satellite for full sentiment detail.
+Click a profile to see stance distribution + post list (same pattern as topic-graph narratives). Linked posts occupy a stance-ordered hex lattice around the profile; each profile’s structural collision radius is its farthest packed post centre so post clouds reserve space without simulating every post.
 
 ## Tunables (`app.js`)
 
@@ -85,4 +85,6 @@ Click a profile to see stance distribution + post list (same pattern as topic-gr
 | `CLUSTER_PITCH` | Spacing between platform hubs when there are several |
 | `PLATFORM_REPEL` | Platforms push apart |
 | `DISTANCE_RING_FORCE` | How strongly profiles stick to their distance ring |
+| `PROFILE_COLLIDE_PAD` | Extra gap after profile post-cloud collision radii |
+| `POST_ORBIT_GAP` | Gap between profile disc and first post hex lane |
 | `LABEL_ZOOM_MULT` | Zoom level at which profile labels appear |

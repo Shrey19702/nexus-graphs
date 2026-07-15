@@ -80,9 +80,11 @@
   const UNKNOWN_STANCE = "unknown";
   const BLAND_GREY = "#E9ECF0";
   const POST_R = 3.25;
-  // How tightly posts hug their profile (smaller = closer)
+  // Gap between profile disc and first hex post lane (mirrors topic-graph LINK_GAP)
   const POST_ORBIT_GAP = 1.25;
-  const POST_RING_STEP = POST_R * 1.4;
+  const PROFILE_COLLIDE_PAD = 6;
+  const POST_LERP = 0.24;
+  const POST_LERP_EPSILON = 0.04;
 
   const PROFILE_R_DEFAULT = 8.5;
   const MEGA_R_MIN = 14;
@@ -94,12 +96,6 @@
   const PLATFORM_REPEL_DIST = 520;
   const FOREIGN_PROFILE_REPEL = 28;
   const FOREIGN_PROFILE_DIST_MAX = 56;
-  // Foreign posts (different parent profile) — mirrors topic-graph FOREIGN_POST_*
-  const FOREIGN_POST_REPEL = 22;
-  const FOREIGN_POST_DIST_MAX = 48;
-  // Push a profile away when its posts overlap an unrelated profile body
-  const FOREIGN_POST_PROFILE_REPEL = 18;
-  const FOREIGN_POST_PROFILE_DIST_MAX = 36;
   // Soft pull toward assigned lane; nodes may wiggle inside slack, hard-clamped beyond
   const DISTANCE_RING_FORCE = 0.22;
   const RING_SLACK_FRAC = 0.22; // free wiggle as fraction of distanceUnit
@@ -158,6 +154,8 @@
     rawGraph: null,
     sentimentById: null,
     focusPosts: null,
+    postsAnimating: false,
+    renderFrame: null,
   };
 
   let zoomBehavior = null;
@@ -179,6 +177,7 @@
     n.orbitScale = 1 + n.seedDist * settings.distanceJitter;
     n.angleJitter = n.seedAngle * settings.angleJitter;
     n.radius = settings.profileSize * (1 + n.seedSize * settings.sizeJitter);
+    n.farthestPostDistance = 0;
   }
 
   function reshuffleProfileSeeds() {
@@ -371,20 +370,23 @@
     );
   }
 
-  function postCloudOuterRadius(profile) {
-    const posts = profile.posts || [];
-    if (!posts.length) return 0;
-    const rings = Math.max(
-      0,
-      Math.floor((posts.length - 1) / Math.max(5, Math.ceil(Math.sqrt(posts.length))))
-    );
-    // Keep post cloud hugged tight to the profile
-    return POST_ORBIT_GAP + POST_R + rings * POST_RING_STEP;
+  function profileCollisionRadius(d) {
+    if (!d || d.type !== "regular_node") {
+      return d?.radius || settings.profileSize;
+    }
+    return d.profileCollisionRadius || d.farthestPostDistance || d.radius || settings.profileSize;
   }
 
-  function layoutPostsAroundProfile(profile) {
+  // Hex-lattice stance packing (same pattern as topic-graph narratives).
+  // Collision radius = farthest packed post centre from the profile.
+  function layoutPostsAroundProfile(profile, { immediate = true } = {}) {
     const posts = profile.posts || [];
-    if (!posts.length || !Number.isFinite(profile.x)) return posts;
+    if (!posts.length) {
+      profile.farthestPostDistance = 0;
+      profile.profileCollisionRadius = profile.radius || settings.profileSize;
+      return posts;
+    }
+    if (!Number.isFinite(profile.x) || !Number.isFinite(profile.y)) return posts;
 
     const buckets = new Map();
     for (const post of posts) {
@@ -393,108 +395,108 @@
       buckets.get(key).push(post);
     }
     const order = [...STANCE_ORDER, UNKNOWN_STANCE].filter((k) => buckets.has(k));
-    const total = posts.length || 1;
-    let angleCursor = -Math.PI / 2;
+    const spacing = POST_R * 2 + 2.5;
+    const bodyR = profile.radius || settings.profileSize;
+    const innerRadius = bodyR + POST_ORBIT_GAP + POST_R;
+    const rowPitch = (spacing * Math.sqrt(3)) / 2;
+    let outerRadius = innerRadius + spacing;
+    let slots = [];
+
+    while (slots.length < posts.length) {
+      slots = [];
+      const rows = Math.ceil(outerRadius / rowPitch);
+      const cols = Math.ceil(outerRadius / spacing) + 1;
+      for (let row = -rows; row <= rows; row += 1) {
+        const y = row * rowPitch;
+        const offsetX = Math.abs(row) % 2 ? spacing / 2 : 0;
+        for (let col = -cols; col <= cols; col += 1) {
+          const x = col * spacing + offsetX;
+          const dist = Math.hypot(x, y);
+          if (dist < innerRadius || dist > outerRadius) continue;
+          slots.push({ x, y, dist });
+        }
+      }
+      if (slots.length < posts.length) outerRadius += spacing;
+    }
+
+    slots.sort((a, b) => a.dist - b.dist);
+    slots = slots.slice(0, posts.length);
+    slots.sort((a, b) => {
+      const aa = (Math.atan2(a.y, a.x) + Math.PI / 2 + Math.PI * 2) % (Math.PI * 2);
+      const ba = (Math.atan2(b.y, b.x) + Math.PI / 2 + Math.PI * 2) % (Math.PI * 2);
+      return aa - ba || a.dist - b.dist;
+    });
+
+    let slotIndex = 0;
     for (const key of order) {
       const bucket = buckets.get(key);
-      const wedge = (bucket.length / total) * Math.PI * 2;
-      bucket.forEach((post, i) => {
-        const t = bucket.length === 1 ? 0.5 : (i + 0.5) / bucket.length;
-        const angle = angleCursor + t * wedge;
-        const ring = Math.floor(i / Math.max(5, Math.ceil(Math.sqrt(bucket.length))));
-        const dist =
-          (profile.radius || settings.profileSize) + POST_ORBIT_GAP + POST_R + ring * POST_RING_STEP;
-        post.x = profile.x + Math.cos(angle) * dist;
-        post.y = profile.y + Math.sin(angle) * dist;
-      });
-      angleCursor += wedge;
+      for (const post of bucket) {
+        const slot = slots[slotIndex++];
+        post.targetLocalX = slot.x;
+        post.targetLocalY = slot.y;
+        if (immediate || !Number.isFinite(post.localX) || !Number.isFinite(post.localY)) {
+          post.localX = post.targetLocalX;
+          post.localY = post.targetLocalY;
+        } else if (
+          Math.abs(post.targetLocalX - post.localX) > POST_LERP_EPSILON ||
+          Math.abs(post.targetLocalY - post.localY) > POST_LERP_EPSILON
+        ) {
+          state.postsAnimating = true;
+        }
+        post.x = profile.x + post.localX;
+        post.y = profile.y + post.localY;
+      }
     }
+
+    profile.farthestPostDistance = slots.length
+      ? Math.max(...slots.map((slot) => slot.dist))
+      : bodyR;
+    profile.profileCollisionRadius = profile.farthestPostDistance;
     return posts;
   }
 
-  // Soft display-space pass so overlapping foreign posts / profiles separate a bit.
-  function separateForeignPosts(iterations = 4) {
-    const posts = [];
-    forEachPost((post) => {
-      if (Number.isFinite(post.x) && Number.isFinite(post.y)) posts.push(post);
-    });
-    if (posts.length < 2) return;
-
-    const profiles = state.nodes.filter(
-      (n) => n.type === "regular_node" && Number.isFinite(n.x) && Number.isFinite(n.y)
-    );
-    const minPost = POST_R * 2.2;
-    const minPost2 = minPost * minPost;
-
-    for (let iter = 0; iter < iterations; iter += 1) {
-      const tree = d3.quadtree(
-        posts,
-        (d) => d.x,
-        (d) => d.y
-      );
-      for (const a of posts) {
-        tree.visit((quad, x0, y0, x1, y1) => {
-          const b = quad.data;
-          if (b) {
-            if (a === b || a.id >= b.id) return;
-            if (a.profileId === b.profileId) return;
-            const dx = b.x - a.x;
-            const dy = b.y - a.y;
-            const dist2 = dx * dx + dy * dy;
-            if (dist2 === 0 || dist2 >= minPost2) return;
-            const dist = Math.sqrt(dist2);
-            const push = ((minPost - dist) / dist) * 0.5;
-            const fx = dx * push;
-            const fy = dy * push;
-            a.x -= fx;
-            a.y -= fy;
-            b.x += fx;
-            b.y += fy;
-            return;
-          }
-          return (
-            x0 > a.x + minPost ||
-            x1 < a.x - minPost ||
-            y0 > a.y + minPost ||
-            y1 < a.y - minPost
-          );
-        });
-      }
-
-      for (const post of posts) {
-        const parent = state.byId.get(post.profileId);
-        for (const profile of profiles) {
-          if (profile.id === post.profileId) continue;
-          const pr = (profile.radius || settings.profileSize) + POST_R + 2;
-          const dx = post.x - profile.x;
-          const dy = post.y - profile.y;
-          const dist = Math.hypot(dx, dy) || 1e-6;
-          if (dist >= pr) continue;
-          const push = (pr - dist) / dist;
-          post.x += dx * push;
-          post.y += dy * push;
-          // Keep posts from drifting too far from their own profile
-          if (parent && Number.isFinite(parent.x)) {
-            const pdx = post.x - parent.x;
-            const pdy = post.y - parent.y;
-            const pdist = Math.hypot(pdx, pdy) || 1;
-            const maxDist =
-              (parent.radius || settings.profileSize) + postCloudOuterRadius(parent) + 3;
-            if (pdist > maxDist) {
-              post.x = parent.x + (pdx / pdist) * maxDist;
-              post.y = parent.y + (pdy / pdist) * maxDist;
-            }
+  function syncPostWorldPositions(advance = false) {
+    let animating = false;
+    for (const n of state.nodes) {
+      if (n.type !== "regular_node" || !n.posts?.length) continue;
+      if (!Number.isFinite(n.x) || !Number.isFinite(n.y)) continue;
+      for (const post of n.posts) {
+        if (advance) {
+          const dx = (post.targetLocalX ?? post.localX ?? 0) - (post.localX ?? 0);
+          const dy = (post.targetLocalY ?? post.localY ?? 0) - (post.localY ?? 0);
+          if (Math.abs(dx) > POST_LERP_EPSILON || Math.abs(dy) > POST_LERP_EPSILON) {
+            post.localX = (post.localX ?? 0) + dx * POST_LERP;
+            post.localY = (post.localY ?? 0) + dy * POST_LERP;
+            animating = true;
+          } else {
+            post.localX = post.targetLocalX ?? post.localX ?? 0;
+            post.localY = post.targetLocalY ?? post.localY ?? 0;
           }
         }
+        post.x = n.x + (post.localX || 0);
+        post.y = n.y + (post.localY || 0);
       }
     }
+    if (advance) state.postsAnimating = animating;
+    return advance ? animating : state.postsAnimating;
   }
 
-  function layoutAllPosts() {
+  function layoutAllPosts({ immediate = false } = {}) {
     for (const n of state.nodes) {
-      if (n.type === "regular_node" && n.posts?.length) layoutPostsAroundProfile(n);
+      if (n.type === "regular_node") layoutPostsAroundProfile(n, { immediate });
     }
-    separateForeignPosts();
+    syncPostWorldPositions();
+    if (state.postsAnimating) requestRender();
+  }
+
+  function requestRender() {
+    if (state.renderFrame != null) return;
+    state.renderFrame = requestAnimationFrame(() => {
+      state.renderFrame = null;
+      const keepAnimating = syncPostWorldPositions(true);
+      render();
+      if (keepAnimating) requestRender();
+    });
   }
 
   function forEachPost(fn) {
@@ -679,113 +681,6 @@
     return force;
   }
 
-  // Posts are display satellites (not sim nodes). Layout them each tick, then push
-  // parent profiles apart when foreign posts / foreign profile bodies overlap —
-  // same idea as topic-graph's repelForeignPosts.
-  function forceForeignPostRepel(opts) {
-    const {
-      strength,
-      distanceMax,
-      profileStrength,
-      profileDistanceMax,
-    } = opts;
-    let nodes = [];
-    const dist2Max = distanceMax * distanceMax;
-
-    function force(alpha) {
-      const posts = [];
-      const profiles = [];
-      for (const n of nodes) {
-        if (n.type !== "regular_node" || !Number.isFinite(n.x) || !Number.isFinite(n.y)) continue;
-        profiles.push(n);
-        if (!n.posts?.length) continue;
-        layoutPostsAroundProfile(n);
-        for (const post of n.posts) {
-          if (Number.isFinite(post.x) && Number.isFinite(post.y)) posts.push(post);
-        }
-      }
-      if (!posts.length) return;
-
-      const impulse = new Map();
-      const add = (profileId, fx, fy) => {
-        const cur = impulse.get(profileId) || { fx: 0, fy: 0 };
-        cur.fx += fx;
-        cur.fy += fy;
-        impulse.set(profileId, cur);
-      };
-
-      if (posts.length >= 2) {
-        const tree = d3.quadtree(
-          posts,
-          (d) => d.x,
-          (d) => d.y
-        );
-        const s = strength * alpha;
-        for (const a of posts) {
-          tree.visit((quad, x0, y0, x1, y1) => {
-            const b = quad.data;
-            if (b) {
-              if (a === b || a.id >= b.id) return;
-              if (a.profileId === b.profileId) return;
-
-              const dx = b.x - a.x;
-              const dy = b.y - a.y;
-              const dist2 = dx * dx + dy * dy;
-              if (dist2 >= dist2Max || dist2 === 0) return;
-
-              const dist = Math.sqrt(dist2);
-              const mag = (s * (1 - dist / distanceMax)) / dist;
-              const fx = dx * mag;
-              const fy = dy * mag;
-              add(a.profileId, -fx, -fy);
-              add(b.profileId, fx, fy);
-              return;
-            }
-            return (
-              x0 > a.x + distanceMax ||
-              x1 < a.x - distanceMax ||
-              y0 > a.y + distanceMax ||
-              y1 < a.y - distanceMax
-            );
-          });
-        }
-      }
-
-      // Posts overlapping an unrelated profile circle → push those profiles apart
-      if (profileStrength && profiles.length) {
-        const ps = profileStrength * alpha;
-        for (const post of posts) {
-          for (const profile of profiles) {
-            if (profile.id === post.profileId) continue;
-            const dx = profile.x - post.x;
-            const dy = profile.y - post.y;
-            const dist2 = dx * dx + dy * dy;
-            const minDist = (profile.radius || settings.profileSize) + POST_R + 2;
-            const reach = Math.max(profileDistanceMax, minDist);
-            if (dist2 >= reach * reach || dist2 === 0) continue;
-            const dist = Math.sqrt(dist2);
-            const mag = (ps * (1 - dist / reach)) / dist;
-            const fx = dx * mag;
-            const fy = dy * mag;
-            add(post.profileId, -fx, -fy);
-            add(profile.id, fx, fy);
-          }
-        }
-      }
-
-      for (const [profileId, f] of impulse) {
-        const profile = state.byId.get(profileId);
-        if (!profile) continue;
-        applyOrbitShear(profile, f.fx, f.fy);
-      }
-    }
-
-    force.initialize = (initNodes) => {
-      nodes = initNodes;
-    };
-    return force;
-  }
-
   // Soft spring toward each profile's packing lane; hard clamp to the JSON
   // distance band so nodes cannot drift into neighboring distance classes.
   function enforceOrbitRadii(strength = DISTANCE_RING_FORCE) {
@@ -842,7 +737,7 @@
   }
 
   // Direct position push for overlapping siblings — velocity-only collide was too weak
-  // once alpha cooled, so dense rings stayed stacked.
+  // once alpha cooled, so dense rings stayed stacked. Uses post-cloud collision radii.
   function resolveSiblingOverlaps(iterations = 4) {
     const byParent = new Map();
     for (const n of state.nodes) {
@@ -861,13 +756,13 @@
           (d) => d.y
         );
         for (const a of group) {
-          const ra = (a.radius || settings.profileSize) + 1.1;
+          const ra = profileCollisionRadius(a) + PROFILE_COLLIDE_PAD * 0.5;
           const reach = ra * 2.4;
           tree.visit((quad, x0, y0, x1, y1) => {
             const b = quad.data;
             if (b) {
               if (a === b || a.id >= b.id) return;
-              const rb = (b.radius || settings.profileSize) + 1.1;
+              const rb = profileCollisionRadius(b) + PROFILE_COLLIDE_PAD * 0.5;
               const minDist = ra + rb;
               const dx = b.x - a.x;
               const dy = b.y - a.y;
@@ -902,8 +797,7 @@
     }
   }
 
-  // Profile collisions: mostly shear, with a little radial leeway for same-parent
-  // pairs so dense rings can stagger instead of stacking into sausages.
+  // Profile collisions reserve each profile's farthest packed post centre.
   function forceProfileShearCollide(strength = 1) {
     let nodes = [];
 
@@ -925,14 +819,13 @@
       );
 
       for (const a of profiles) {
-        // Body-only for same-ring spacing; post clouds handled by foreign-post force
-        const ra = (a.radius || settings.profileSize) + 1.25;
+        const ra = profileCollisionRadius(a) + PROFILE_COLLIDE_PAD;
         const reach = ra * 2.5;
         tree.visit((quad, x0, y0, x1, y1) => {
           const b = quad.data;
           if (b) {
             if (a === b || a.id >= b.id) return;
-            const rb = (b.radius || settings.profileSize) + 1.25;
+            const rb = profileCollisionRadius(b) + PROFILE_COLLIDE_PAD;
             const minDist = ra + rb;
             const dx = b.x - a.x;
             const dy = b.y - a.y;
@@ -953,7 +846,7 @@
       }
 
       for (const a of profiles) {
-        const ra = a.radius || settings.profileSize;
+        const ra = profileCollisionRadius(a) + PROFILE_COLLIDE_PAD;
         for (const p of platforms) {
           if (a.parentId === p.id) continue;
           const rb = p.radius || MEGA_R_MIN;
@@ -1242,6 +1135,7 @@
       for (const n of state.nodes) applyProfileJitter(n);
     }
     seedPositions({ keepPlatforms: true });
+    layoutAllPosts({ immediate: true });
     state.settled = false;
     startSimulation();
     render();
@@ -1418,15 +1312,6 @@
           distanceMax: FOREIGN_PROFILE_DIST_MAX,
         })
       )
-      .force(
-        "repelForeignPosts",
-        forceForeignPostRepel({
-          strength: FOREIGN_POST_REPEL,
-          distanceMax: FOREIGN_POST_DIST_MAX,
-          profileStrength: FOREIGN_POST_PROFILE_REPEL,
-          profileDistanceMax: FOREIGN_POST_PROFILE_DIST_MAX,
-        })
-      )
       .force("collisionPlatforms", forcePlatformCollide())
       .force("collisionProfiles", forceProfileShearCollide(1))
       // Soft ring spring + hard outer clamp (runs last)
@@ -1438,7 +1323,8 @@
   function onTick() {
     resolveSiblingOverlaps(3);
     enforceOrbitRadii(DISTANCE_RING_FORCE * 0.35);
-    if (state.dragging || state.simulation.alpha() > 0.02 || state.hovered || state.selected) {
+    syncPostWorldPositions();
+    if (state.dragging || state.simulation.alpha() > 0.02 || state.hovered || state.selected || state.postsAnimating) {
       render();
     }
   }
@@ -1477,6 +1363,7 @@
       n.vx = 0;
       n.vy = 0;
     }
+    syncPostWorldPositions();
   }
 
   function pinClusterForDrag(platform) {
@@ -1506,7 +1393,8 @@
     let maxX = -Infinity;
     let maxY = -Infinity;
     for (const n of state.nodes) {
-      const r = nodeRadius(n);
+      const r =
+        n.type === "regular_node" ? profileCollisionRadius(n) + POST_R : nodeRadius(n);
       if (!Number.isFinite(n.x) || !Number.isFinite(n.y)) continue;
       minX = Math.min(minX, n.x - r);
       minY = Math.min(minY, n.y - r);
@@ -2130,7 +2018,7 @@
     const focusing = platformFocusActive();
     const profileFocus = profileFocusActive();
     const focusProfileId = focusedProfileId();
-    layoutAllPosts();
+    syncPostWorldPositions();
     if (profileFocus && focusProfileId != null) {
       const profile = state.byId.get(focusProfileId);
       if (profile) state.focusPosts = profile.posts || [];
@@ -2644,6 +2532,7 @@
       }
 
       seedPositions();
+      layoutAllPosts({ immediate: true });
       startSimulation();
       render();
     } catch (err) {

@@ -176,8 +176,8 @@ Tune these constants near the top of `app.js`, then hard-refresh.
 | `FOREIGN_MEGA_DIST_MAX` | `120` | Range of foreign narrative repel |
 | `FAMILY_COLLIDE_PAD` | `28` | Extra separation between aggregate family footprints |
 | `TOPIC_COLLIDE_PAD` | `6` | Gap after parent-topic/narrative collision radii |
-| Initial simulation alpha / minimum / decay | `0.92` / `0.002` / `0.018` | Longer initial settle for the full graph; anchor repairs use their separate short settle |
-| `LOCAL_SETTLE_ALPHA` | `0.14` | Energy for overlap-only anchor settling |
+| Initial simulation alpha / minimum / decay / velocityDecay | `0.98` / `0.001` / `0.010` / `0.55` | Long visible initial settle for the full graph |
+| `LOCAL_SETTLE_ALPHA` / decay | `0.32` / `0.035` | Visible overlap-only settle after anchoring a parent |
 | `POST_LERP` | `0.24` | Per-frame local post interpolation factor |
 | Collide `iterations` | `2` | Keep low for performance |
 | Parent attract strength | `0.95` | How tightly narratives orbit their parent hub (one-way) |

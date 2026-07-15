@@ -50,13 +50,14 @@
   const MEGA_MEGA_REPEL_DIST = 280;
   const FAMILY_COLLIDE_PAD = 28;
   const TOPIC_COLLIDE_PAD = 6;
-  // Initial placement gets time to resolve large topic/post footprints.
-  // Anchor overlap repairs remain deliberately short in restartSettleAfterAnchor().
-  const INITIAL_SIMULATION_ALPHA = 0.92;
-  const INITIAL_SIMULATION_ALPHA_MIN = 0.002;
-  const INITIAL_SIMULATION_ALPHA_DECAY = 0.018;
-  const INITIAL_SIMULATION_VELOCITY_DECAY = 0.68;
-  const LOCAL_SETTLE_ALPHA = 0.14;
+  // Long cool-downs so the user sees clusters animate into place.
+  // Initial settle is slowest; anchor overlap repairs are shorter but still visible.
+  const INITIAL_SIMULATION_ALPHA = 0.98;
+  const INITIAL_SIMULATION_ALPHA_MIN = 0.001;
+  const INITIAL_SIMULATION_ALPHA_DECAY = 0.010;
+  const INITIAL_SIMULATION_VELOCITY_DECAY = 0.55;
+  const LOCAL_SETTLE_ALPHA = 0.32;
+  const LOCAL_SETTLE_ALPHA_DECAY = 0.035;
   const POST_LERP = 0.24;
   const POST_LERP_EPSILON = 0.04;
   // Labels only after deep zoom so text doesn't blanket the graph (~4.5× fit zoom)
@@ -1471,7 +1472,7 @@
     state.simulation.force("familyCollision")?.initialize?.(nodes);
     state.simulation.force("repelFamilies")?.initialize?.(nodes);
     state.simulation.force("repelForeignMegas")?.initialize?.(nodes);
-    state.simulation.alpha(LOCAL_SETTLE_ALPHA).alphaDecay(0.09).restart();
+    state.simulation.alpha(LOCAL_SETTLE_ALPHA).alphaDecay(LOCAL_SETTLE_ALPHA_DECAY).restart();
   }
 
   function fitGraphToView() {
