@@ -18,9 +18,49 @@
     </div>
     <div id="chrome-right">
       <button type="button" id="fit-view" class="chrome-btn">Fit to view</button>
+      <button type="button" id="settings-toggle" class="chrome-btn" aria-expanded="false" aria-controls="settings">
+        Settings
+      </button>
       <span id="zoom-label">100%</span>
     </div>
   </div>
+  <aside id="settings" class="settings" hidden aria-label="Graph settings">
+    <div class="settings-header">
+      <h2 class="settings-title">Settings</h2>
+      <button type="button" id="settings-close" class="panel-close" aria-label="Close settings">×</button>
+    </div>
+    <div class="settings-body">
+      <section class="settings-section">
+        <h3 class="settings-section-title">Node sizes</h3>
+        <div class="setting-row" data-key="topicSize">
+          <label class="setting-label" for="set-topicSize">Topic</label>
+          <input type="range" id="set-topicSize" min="12" max="80" step="1" />
+          <input type="number" id="num-topicSize" min="12" max="80" step="1" />
+        </div>
+        <div class="setting-row" data-key="narrativeSize">
+          <label class="setting-label" for="set-narrativeSize">Narrative</label>
+          <input type="range" id="set-narrativeSize" min="6" max="48" step="1" />
+          <input type="number" id="num-narrativeSize" min="6" max="48" step="1" />
+        </div>
+        <div class="setting-row" data-key="postSize">
+          <label class="setting-label" for="set-postSize">Post</label>
+          <input type="range" id="set-postSize" min="1" max="12" step="0.25" />
+          <input type="number" id="num-postSize" min="1" max="12" step="0.25" />
+        </div>
+      </section>
+      <section class="settings-section">
+        <h3 class="settings-section-title">Visibility</h3>
+        <label class="setting-check" for="set-showEmptyTopics">
+          <input type="checkbox" id="set-showEmptyTopics" />
+          <span>Show empty topics</span>
+        </label>
+        <p class="setting-hint">Parent topics with no narratives (and no posts) are hidden by default.</p>
+      </section>
+      <div class="settings-actions">
+        <button type="button" id="settings-reset" class="settings-btn settings-btn-muted">Reset</button>
+      </div>
+    </div>
+  </aside>
   <canvas id="graph"></canvas>
   <aside id="panel" class="panel" hidden aria-hidden="true">
     <div class="panel-header">

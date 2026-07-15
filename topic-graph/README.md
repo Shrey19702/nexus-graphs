@@ -24,17 +24,24 @@ Optional: `./run.sh` from the repo root.
 | `index.html` | Shell page: fullscreen canvas, chrome (title + zoom %), detail side panel (post or narrative) |
 | `styles.css` | Layout chrome, panel, off-white page background |
 | `app.js` | Data load, seeding, forces, Canvas render, zoom / hover / click / drag |
-| `graph_output_topic_parent_topic.json` | **Active** dataset (3-level hierarchy) |
-| `CJP-SEARCH-RESULTS - l1-iteration-1-sentiment.csv` | Post sentiment / stance sheet (joined by `post_id` ↔ node `id`) |
-| `graph_output_subtopic.json` | Earlier 2-level dataset (not loaded by default) |
+| `15jul-narrative-graph.json` | **Active** dataset (3-level hierarchy; 14jul + 15jul posts) |
+| `all-nexus-data-till-15jul.csv` | **Active** post detail / sentiment sheet (joined by `post_id` ↔ node `id`) |
 | `README.md` | This document |
+
+Canonical sources at repo root:
+
+- [`../14jul-nexus-data-with-stance.csv`](../14jul-nexus-data-with-stance.csv)
+- [`../15jul-nexus-data.csv`](../15jul-nexus-data.csv)
+- [`../15jul-narrative-graph.json`](../15jul-narrative-graph.json)
+
+Superseded sheets / earlier graphs: [`../old-data/`](../old-data/) (gitignored).
 
 See also [`../platform-profiles/`](../platform-profiles/) for the platform → profile graph.
 
 Active data path is set in `app.js` as:
 
 ```js
-const DATA_FILE = "graph_output_topic_parent_topic.json";
+const DATA_FILE = "15jul-narrative-graph.json";
 ```
 
 ## Graph model
@@ -52,7 +59,7 @@ const DATA_FILE = "graph_output_topic_parent_topic.json";
 | Kind | Connects | Behavior |
 |------|----------|----------|
 | `parent_link` | `mega_mega_node` ↔ `mega_node` | Medium-short spring (`PARENT_LINK_GAP`) |
-| `post_link` | `mega_node` ↔ `regular_node` | Very short spring (`LINK_GAP`) so posts hug narratives |
+| `post_link` | `mega_node` ↔ `regular_node` | Render-only relationship; local post packing replaces per-post springs |
 
 ### Identity (important)
 
@@ -74,20 +81,24 @@ After remapping you should see clean hierarchy edges only (parent→narrative an
 
 ### Layout
 
-1. **Seed (once, before sim)**
-   - Parent topics packed in a **filled golden-angle disc** (`CLUSTER_PITCH`) — not a hollow ring.
-   - Narratives fan tightly around their parent topic.
-   - Posts fan tightly around their narrative.
-2. **Forces (lightweight)**
-   - `forceLink` — short typed distances, high strength.
-   - `repelMegaMega` — many-body **only** on parent topics (keeps families apart).
-   - `repelForeignMegas` — megas with **different** `parentId` push apart.
-   - `repelForeignPosts` — posts with **different** narrative parents push apart.
-   - `forceCollide` — circle-only radii (no label AABB); low iteration count.
-   - **No center gravity** (avoids sucking everything toward the middle).
+The graph uses a two-level hybrid layout:
+
+1. **Structural simulation (~411 nodes)**
+   - Only parent topics and narratives participate in D3 physics.
+   - Parent topics are seeded in a size-aware golden-angle pack and act as the **sole attractor** for their narratives.
+   - A one-way parent attract force keeps narratives orbiting their hub; children never pull parents off center.
+   - Family repulsion / collision move each parent **with** its narratives so topic-topic gaps stay stable.
+   - Narrative↔narrative collision uses each topic's farthest packed post centre as radius.
+   - Posts and post links are excluded from the simulation.
+2. **Local post clouds (~5,088 posts)**
+   - Posts occupy a collision-free hex lattice around their narrative; angular assignment keeps stances in contiguous sectors.
+   - Each post stores a local offset; its world position is derived from the narrative position.
+   - Changed post layouts interpolate toward new local targets and stop when settled.
+   - A narrative's structural collision radius is its farthest packed post centre, so post clouds reserve their visible space without simulating every post.
 3. **Settle**
-   - When the simulation ends, parent topics and narratives are pinned (`fx`/`fy`).
-   - View **fits** the graph into the viewport (accounts for open side panel width).
+   - Parent topics and narratives are pinned when the structural simulation ends.
+   - Idle physics cost is zero.
+   - The view fits once after the initial simulation; anchor micro-settles do not move the camera.
 
 ### Colors (family tinting)
 
@@ -97,8 +108,7 @@ Orphaned narratives (no parent topic) use `COLORS.orphan`.
 
 ### Labels & clutter control
 
-- **Parent topic labels** (`mega_mega_node`) always draw in world space so they **grow/shrink with zoom**.
-- **Narrative labels** draw only when zoom ≥ `baselineZoom * LABEL_ZOOM_MULT` (default ~175% of fit zoom). Truncated with ellipsis.
+- **Parent topic labels** (`mega_mega_node`) and **narrative labels** draw only when zoom ≥ `baselineZoom * LABEL_ZOOM_MULT` (default ~450% of fit zoom). Overlapping labels are skipped via screen-space collision. Truncated with ellipsis.
 - **Post labels** never draw on the canvas at rest; hover shows a tooltip; click opens the panel.
 - **All text is black** (chrome, panel, graph labels, tooltip text). Tooltips use a light background so black text stays readable.
 
@@ -109,26 +119,31 @@ Orphaned narratives (no parent topic) use `COLORS.orphan`.
 | Scroll wheel | Zoom toward cursor (`d3.zoom`, scale extent `0.02–12`) |
 | Drag empty canvas | Pan |
 | Hover post / mega / parent | Outline / tooltip with full display name |
-| Click post | Opens right **detail panel** with CSV sentiment fields when `post_id` matches (stance, content, reasoning, URL, …) |
-| **Click narrative (`mega_node`)** | Opens panel with stance **distribution bar + %**, post list; **highlights** posts with **stance-colored borders**; focuses camera. Same-stance posts are clustered around the narrative. |
+| Click post | Opens right **detail panel** with CSV sentiment fields when `post_id` matches (sentiment, content, reasoning, URL, …) |
+| **Click narrative (`mega_node`)** | Opens panel with sentiment **distribution bar + %**, post list; **highlights** posts with **sentiment-colored borders**; focuses camera. Same-sentiment posts are clustered around the narrative. |
 | Click empty / other / Escape / panel × | Closes panel; clears highlight |
 | **Drag `mega_mega_node`** | Moves the parent **and** its linked narratives + posts as one cluster; on release the parent is **anchored** (`userPinned`) at that position. A dashed black ring marks anchored parents. |
 
-Dragging a parent topic suppresses pan/zoom on that gesture. After drop, a brief low-alpha restart lets posts settle; the anchored parent stays fixed.
+Dragging a parent topic suppresses pan/zoom on that gesture. The family moves as a rigid structural unit and posts follow through their local offsets. On drop:
+
+- If the new family footprint does not overlap another family, no simulation restarts.
+- If it overlaps, only the dragged family plus directly overlapping, non-user-anchored neighbors receive a short low-alpha structural settle.
+- Previously user-anchored families remain fixed.
 
 ### Side panel fields
 
 **Post mode**
 
 - **Post ID** — original string `rawId` (matched to CSV `post_id`)
-- **Stance / content / reasoning / details / URL** — from the sentiment sheet when present
+- **Sentiment / tone / content / post narrative / subjects / violations / URL** — from `all-nexus-data-till-15jul.csv` when present
+- **Details** — platform, speech type, severity, parent topic / topic, keyword, protected expression, …
 - **Narrative** — linked `mega_node` title(s) and parent topic name(s)
 
 **Narrative (`mega_node`) mode**
 
 - **Narrative ID** / **Label** / **Parent topic**
-- **Stance distribution** — stacked percentage bar + counts (`post_count` / `percentage` per stance)
-- **Posts** — stance-sorted list (click a card to open that post)
+- **Sentiment distribution** — stacked percentage bar + counts (`post_count` / `percentage` per sentiment); click a row to filter
+- **Posts** — sentiment-sorted list (click a card to open that post)
 
 ## Settings reference (`app.js`)
 
@@ -141,29 +156,31 @@ Tune these constants near the top of `app.js`, then hard-refresh.
 | `POST_R` | `3` | Post circle radius (world units) |
 | `MEGA_R_MIN` / `MEGA_R_MAX` | `12` / `22` | Narrative radius range (scales with degree) |
 | `MEGA_MEGA_R_MIN` / `MEGA_MEGA_R_MAX` | `28` / `42` | Parent topic radius range |
-| `LINK_GAP` | `4` | Extra gap on mega↔post link distance (smaller ⇒ posts closer) |
-| `PARENT_LINK_GAP` | `14` | Extra gap on parent↔mega link distance (smaller ⇒ family tighter) |
-| `CLUSTER_PITCH` | `280` | Packing scale for parent-topic seed disc (larger ⇒ more space between families at seed) |
-| `LABEL_ZOOM_MULT` | `1.75` | Narrative labels appear at this multiple of fit zoom |
-| `MEGA_MEGA_LABEL_SIZE` | `11` | Parent-topic label font size in world units (scales with zoom on screen) |
-| `MEGA_LABEL_MAX_CHARS` | `20` | Max narrative label chars on-canvas |
-| `MEGA_MEGA_LABEL_MAX_CHARS` | `24` | Max parent topic label chars on-canvas |
+| `LINK_GAP` | `1.5` | Gap between a narrative disc and the first local post lane |
+| `PARENT_LINK_GAP` | `6` | Extra parent↔narrative distance beyond the narrative post-cloud collision radius |
+| `CLUSTER_PITCH` | `220` | Minimum scale used by size-aware parent seeding |
+| `CLUSTER_PACK_PAD` | `36` | Padding added to aggregate family footprints |
+| `LABEL_ZOOM_MULT` | `4.5` | Narrative + parent-topic labels appear at this multiple of fit zoom; overlapping labels are skipped |
+| `MEGA_MEGA_LABEL_SIZE` | `10` | Parent-topic label font size in world units (scales with zoom on screen) |
+| `MEGA_LABEL_MAX_CHARS` | `22` | Max narrative label chars on-canvas |
+| `MEGA_MEGA_LABEL_MAX_CHARS` | `26` | Max parent topic label chars on-canvas |
 | `FAMILY_PALETTE` | 13 dull hex colors | Rotating colors for parent topics |
 
 ### Forces / clustering
 
 | Constant | Default | Meaning |
 |----------|---------|---------|
-| `MEGA_MEGA_REPEL` | `520` | Parent-topic many-body strength magnitude |
-| `MEGA_MEGA_REPEL_DIST` | `420` | Max distance for parent many-body |
-| `FOREIGN_MEGA_REPEL` | `55` | Strength of cross-family mega↔mega push |
-| `FOREIGN_MEGA_DIST_MAX` | `160` | Range of foreign mega repel |
-| `FOREIGN_POST_REPEL` | `22` | Strength of cross-narrative post↔post push |
-| `FOREIGN_POST_DIST_MAX` | `48` | Range of foreign post repel |
-| Simulation `alphaDecay` | `0.05` | Faster settle ⇒ lower cost |
-| Simulation `velocityDecay` | `0.5` | Higher ⇒ less overshoot |
+| `MEGA_MEGA_REPEL` | `220` | Parent-topic many-body strength magnitude |
+| `MEGA_MEGA_REPEL_DIST` | `280` | Max distance for parent many-body |
+| `FOREIGN_MEGA_REPEL` | `32` | Strength of cross-family narrative push |
+| `FOREIGN_MEGA_DIST_MAX` | `120` | Range of foreign narrative repel |
+| `FAMILY_COLLIDE_PAD` | `28` | Extra separation between aggregate family footprints |
+| `TOPIC_COLLIDE_PAD` | `6` | Gap after parent-topic/narrative collision radii |
+| Initial simulation alpha / minimum / decay | `0.92` / `0.002` / `0.018` | Longer initial settle for the full graph; anchor repairs use their separate short settle |
+| `LOCAL_SETTLE_ALPHA` | `0.14` | Energy for overlap-only anchor settling |
+| `POST_LERP` | `0.24` | Per-frame local post interpolation factor |
 | Collide `iterations` | `2` | Keep low for performance |
-| Link strength parent / post | `0.9` / `1` | How tightly children hug parents |
+| Parent attract strength | `0.95` | How tightly narratives orbit their parent hub (one-way) |
 
 ### Interaction
 
@@ -189,23 +206,24 @@ Tune these constants near the top of `app.js`, then hard-refresh.
 
 1. Clear off-white background (DPR-aware canvas).
 2. Apply `d3.zoom` transform.
-3. Draw parent links (family tint), then post links.
+3. Draw parent links. Draw post links only while focused or at ≥180% fit zoom.
 4. Draw posts → narratives → parent topics (parents on top).
 5. Draw zoom-gated black labels; dashed ring on user-anchored parents.
 6. Screen-space hover tooltip (black text on light chip).
 
-Redraws on: sim ticks (while hot), zoom, hover changes, drag, panel open/close.
+Simulation ticks and post interpolation use a coalesced animation-frame redraw. Offscreen nodes and links are culled.
 
 ## Performance notes
 
-Designed for ~1.5k nodes without the heavy patterns from experimental layouts:
+Designed for the current ~5.5k-node dataset:
 
-- Canvas instead of SVG.
-- No per-tick unused quadtree work outside the foreign-repel forces.
-- No post many-body over the whole graph.
-- Foreign repels use **short-range quadtrees** and skip same-parent pairs.
-- Collide iterations kept low; label size not included in collide radius.
-- Pins hubs after settle to stop continuous layout cost.
+- D3 simulates only parent topics and narratives (roughly 411 nodes).
+- Posts never participate in global link, repel, collide, or orbit forces.
+- Post packing is deterministic and local to each narrative.
+- Dense narratives affect global layout through one cloud radius, avoiding force multiplication by post count.
+- Anchor changes skip simulation when there is no overlap and otherwise settle only immediate structural neighbors.
+- Canvas rendering culls offscreen content and suppresses thousands of post links at fit zoom.
+- All structural nodes pin after settling, so idle physics cost is zero.
 
 ## Switching datasets
 
@@ -224,9 +242,10 @@ Designed for ~1.5k nodes without the heavy patterns from experimental layouts:
 | Issue | Fix |
 |-------|-----|
 | Blank / load error text | Serve over HTTP; confirm `DATA_FILE` exists |
-| Everything in a huge empty ring | Raise was fixed by disc seeding; if regressing, check `CLUSTER_PITCH` vs extreme `MEGA_MEGA_REPEL` |
-| Families overlap | Increase `CLUSTER_PITCH`, `MEGA_MEGA_REPEL`, collide halo on parents |
-| Posts too far from narratives | Lower `LINK_GAP` / raise post link strength |
+| Everything in a huge empty ring | Check aggregate `clusterExtent`, `CLUSTER_PITCH`, and `MEGA_MEGA_REPEL` |
+| Families overlap | Increase `CLUSTER_PACK_PAD`, `FAMILY_COLLIDE_PAD`, or `TOPIC_COLLIDE_PAD` |
+| Posts too far from narratives | Lower `LINK_GAP` or the local post spacing in `placePostsByStance` |
+| Old clusters move after anchoring | Confirm posts are excluded from `structuralNodes` and only overlap neighbors are unpinned |
 | Drag pans the canvas instead | Start the drag on the parent circle body; zoom filter ignores pan when a parent is under the pointer |
 | Labels missing | Narrative labels need zoom past ~175% of fit; parent-topic labels always show |
 

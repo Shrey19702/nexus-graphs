@@ -2,6 +2,10 @@
 .vercel
 node_modules/
 
-# Unused root copies (apps load CSVs from their own folders)
-/CJP-SEARCH-RESULTS - l1-iteration-1-all.csv
-/CJP-SEARCH-RESULTS - l1-iteration-1-sentiment.csv
+# Archived superseded sheets / graphs
+/old-data/
+
+# Unused root data copies (apps load files from their own folders)
+/14jul-nexus-data-with-stance.csv
+/15jul-narrative-graph.json
+/15jul-nexus-data.csv

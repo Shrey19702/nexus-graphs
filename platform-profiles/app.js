@@ -1,17 +1,22 @@
 (() => {
+  // Shared structural colors (Nexus Civic Signal theme)
   const COLORS = {
-    bg: "#f8fafc",
-    profileFallback: "#94a3b8",
-    profileSelected: "#64748b",
-    postFallback: "#374151",
-    megaSelectedStroke: "#0f172a",
-    text: "#000000",
-    hoverStroke: "#334155",
+    bg: "#FAFBFC",
+    edge: "#D9DEE4",
+    text: "#1F2937",
+    mutedText: "#6B7280",
+    selectionRing: "#2563EB",
+    profileFallback: "#9AA5B1",
+    profileSelected: "#9AA5B1",
+    postFallback: "#9AA5B1",
+    postNoData: "#E9ECF0",
+    megaSelectedStroke: "#2563EB",
+    hoverStroke: "#6B7280",
     tooltipBg: "rgba(255, 255, 255, 0.96)",
-    tooltipText: "#000000",
-    tooltipBorder: "rgba(15, 23, 42, 0.18)",
-    orphan: "#94a3b8",
-    orphanStroke: "#64748b",
+    tooltipText: "#1F2937",
+    tooltipBorder: "#D9DEE4",
+    orphan: "#9AA5B1",
+    orphanStroke: "#CBD2DA",
     dimAlpha: 0.22,
   };
 
@@ -49,27 +54,31 @@
     "pro_cjp",
     "neutral_news",
     "unclear",
+    "mixed",
     "anti_cjp",
     "anti_government",
   ];
+  // Civic Signal sentiment palette (posts + stance UI)
   const STANCE_COLORS = {
-    pro_government: "#22c55e",
-    pro_cjp: "#a3e635",
-    neutral_news: "#9ca3af",
-    unclear: "#9ca3af",
-    anti_cjp: "#fb923c",
-    anti_government: "#ef4444",
+    pro_government: "#1B7F5C",
+    pro_cjp: "#94C25E",
+    neutral_news: "#9AA5B1",
+    unclear: "#CBD2DA",
+    mixed: "#A8B0BA",
+    anti_cjp: "#E8853D",
+    anti_government: "#D64545",
   };
   const STANCE_LABELS = {
     pro_government: "Pro government",
     pro_cjp: "Pro CJP",
     neutral_news: "Neutral / news",
     unclear: "Unclear",
+    mixed: "Mixed",
     anti_cjp: "Anti CJP",
     anti_government: "Anti government",
   };
   const UNKNOWN_STANCE = "unknown";
-  const BLAND_GREY = "#9ca3af";
+  const BLAND_GREY = "#E9ECF0";
   const POST_R = 3.25;
   // How tightly posts hug their profile (smaller = closer)
   const POST_ORBIT_GAP = 1.25;
@@ -521,7 +530,7 @@
         post_count: postCount,
         percentage: total ? Math.round((postCount / total) * 10000) / 100 : 0,
         color: stanceColor(key),
-        label: key === UNKNOWN_STANCE ? "No data" : STANCE_LABELS[key] || key,
+        label: key === UNKNOWN_STANCE ? "No sentiment" : STANCE_LABELS[key] || key,
       });
     }
     return { total, entries };
@@ -1596,7 +1605,7 @@
     el.className = "stance-badge";
     const key = stance && STANCE_COLORS[stance] ? stance : UNKNOWN_STANCE;
     el.style.setProperty("--stance-color", stanceColor(key));
-    el.textContent = key === UNKNOWN_STANCE ? "No data" : STANCE_LABELS[key] || key;
+    el.textContent = key === UNKNOWN_STANCE ? "No sentiment" : STANCE_LABELS[key] || key;
     return el;
   }
 
@@ -1625,7 +1634,7 @@
       const empty = document.createElement("div");
       empty.className = "stance-bar-seg";
       empty.style.width = "100%";
-      empty.style.background = "#e2e8f0";
+      empty.style.background = COLORS.postNoData;
       bar.appendChild(empty);
     }
     wrap.appendChild(bar);
@@ -1651,7 +1660,7 @@
       legend.appendChild(row);
     }
     wrap.appendChild(legend);
-    appendField(parent, "Stance distribution", wrap);
+    appendField(parent, "Sentiment distribution", wrap);
   }
 
   function focusNodes(nodes) {
@@ -1751,7 +1760,7 @@
       const empty = document.createElement("div");
       empty.className = "stance-bar-seg";
       empty.style.width = "100%";
-      empty.style.background = "#e2e8f0";
+      empty.style.background = COLORS.postNoData;
       bar.appendChild(empty);
     }
     wrap.appendChild(bar);
@@ -1907,7 +1916,7 @@
         tone.textContent = `Tone: ${s.tone}`;
         stanceWrap.appendChild(tone);
       }
-      appendField(panelBody, "Stance", stanceWrap);
+      appendField(panelBody, "Sentiment", stanceWrap);
 
       if (s.content_snippet) {
         const snippet = makeValue(s.content_snippet);
@@ -2159,24 +2168,23 @@
       const tg = l.target;
       if (!s || !tg || !Number.isFinite(s.x) || !Number.isFinite(tg.x)) continue;
       const related = focusing && isHighlighted(s) && isHighlighted(tg);
-      const platform = s.type === "mega_node" ? s : tg.type === "mega_node" ? tg : null;
-      let color = platform?.linkColor || hexToRgba(COLORS.profileFallback, 0.2);
-      if ((focusing || profileFocus) && !related && !(profileFocus && (s.id === focusProfileId || tg.id === focusProfileId))) {
-        color = hexToRgba(COLORS.profileFallback, COLORS.dimAlpha * 0.45);
-      } else if (related || (profileFocus && (s.id === focusProfileId || tg.id === focusProfileId))) {
-        color = platform?.color
-          ? hexToRgba(platform.color, 0.55)
-          : hexToRgba(COLORS.profileFallback, 0.55);
+      const profileSpoke =
+        profileFocus && (s.id === focusProfileId || tg.id === focusProfileId);
+      let color = COLORS.edge;
+      if ((focusing || profileFocus) && !related && !profileSpoke) {
+        color = hexToRgba(COLORS.edge, COLORS.dimAlpha * 0.65);
+      } else if (related || profileSpoke) {
+        color = hexToRgba(COLORS.mutedText, 0.5);
       }
       ctx.strokeStyle = color;
-      ctx.lineWidth = (related || (profileFocus && (s.id === focusProfileId || tg.id === focusProfileId)) ? 2.75 : 1) / t.k;
+      ctx.lineWidth = (related || profileSpoke ? 2.75 : 1) / t.k;
       ctx.beginPath();
       ctx.moveTo(s.x, s.y);
       ctx.lineTo(tg.x, tg.y);
       ctx.stroke();
     }
 
-    // Profile → post spokes — dark gray at rest; sentiment only when profile/post selected
+    // Profile → post spokes — structural edge at rest; Civic Signal when stance shown
     forEachPost((post, profile) => {
       if (!Number.isFinite(post.x) || !Number.isFinite(profile.x)) return;
       const inFocus = isPostInFocus(post);
@@ -2194,11 +2202,16 @@
         alpha = 0.85;
         width = 2.75;
       } else {
-        // Default / platform focus: quiet dark-gray spokes
-        alpha = focusing && inFocus ? 0.4 : 0.28;
+        alpha = focusing && inFocus ? 0.55 : 0.4;
         width = focusing && inFocus ? 1.35 : 0.9;
       }
-      const spokeColor = showStance ? stanceColor(stanceKey(post)) : COLORS.postFallback;
+      const sk = stanceKey(post);
+      const hasStance = sk && sk !== UNKNOWN_STANCE && STANCE_COLORS[sk];
+      const spokeColor = showStance
+        ? hasStance
+          ? stanceColor(sk)
+          : COLORS.postNoData
+        : COLORS.edge;
       ctx.strokeStyle = hexToRgba(spokeColor, alpha);
       ctx.lineWidth = width / t.k;
       ctx.beginPath();
@@ -2226,7 +2239,7 @@
       }
       ctx.fill();
       if (n.id === focusProfileId) {
-        ctx.strokeStyle = COLORS.megaSelectedStroke;
+        ctx.strokeStyle = COLORS.selectionRing;
         ctx.lineWidth = 3.25 / t.k;
         ctx.stroke();
       } else if (focusing && selected) {
@@ -2236,12 +2249,13 @@
       }
     }
 
-    // Posts — always dark gray until a profile/post is selected, then sentiment colors
+    // Posts — muted at rest; Civic Signal when profile/post selection highlights stance
     forEachPost((post) => {
       if (!Number.isFinite(post.x)) return;
       const inFocus = isPostInFocus(post);
       const sk = stanceKey(post);
       const sc = stanceColor(sk);
+      const hasStance = sk && sk !== UNKNOWN_STANCE && STANCE_COLORS[sk];
       const selectedPost = state.selected?.type === "post" && state.selected.id === post.id;
       const showStance = selectedPost || (profileFocus && inFocus);
       const r = selectedPost ? POST_R + 2 : showStance ? POST_R + 1.25 : POST_R;
@@ -2251,9 +2265,9 @@
         ctx.fillStyle = hexToRgba(COLORS.postFallback, COLORS.dimAlpha);
         ctx.fill();
       } else if (showStance) {
-        ctx.fillStyle = lightenHex(sc, 0.4);
+        ctx.fillStyle = hasStance ? sc : COLORS.postNoData;
         ctx.fill();
-        ctx.strokeStyle = sc;
+        ctx.strokeStyle = hasStance ? sc : COLORS.selectionRing;
         ctx.lineWidth = (selectedPost ? 3.5 : 2.75) / t.k;
         ctx.stroke();
       } else {
@@ -2293,7 +2307,7 @@
         ? hexToRgba(n.color || COLORS.orphan, COLORS.dimAlpha)
         : n.color || COLORS.orphan;
       const stroke = selected
-        ? COLORS.megaSelectedStroke
+        ? COLORS.selectionRing
         : hovered
           ? COLORS.hoverStroke
           : n.strokeColor || COLORS.orphanStroke;

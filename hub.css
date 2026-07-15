@@ -17,10 +17,10 @@ body {
   place-items: center;
   padding: 32px 20px;
   background:
-    radial-gradient(ellipse 80% 60% at 50% -10%, #e2e8f0 0%, transparent 55%),
-    #f8fafc;
+    radial-gradient(ellipse 80% 60% at 50% -10%, #d9dee4 0%, transparent 55%),
+    #fafbfc;
   font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-  color: #000000;
+  color: #1f2937;
 }
 
 .hub {
@@ -41,7 +41,7 @@ body {
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #64748b;
+  color: #6b7280;
 }
 
 .hub-title {
@@ -53,7 +53,7 @@ body {
 
 .hub-sub {
   font-size: 14px;
-  color: #64748b;
+  color: #6b7280;
 }
 
 .hub-nav {
@@ -70,7 +70,7 @@ body {
   text-decoration: none;
   color: inherit;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #d9dee4;
   border-radius: 10px;
   transition:
     border-color 0.15s ease,
@@ -80,12 +80,12 @@ body {
 
 .hub-link:hover {
   border-color: #cbd5e1;
-  background: #f8fafc;
+  background: #fafbfc;
   transform: translateY(-1px);
 }
 
 .hub-link:focus-visible {
-  outline: 2px solid #0f172a;
+  outline: 2px solid #2563eb;
   outline-offset: 2px;
 }
 
@@ -96,5 +96,5 @@ body {
 
 .hub-link-desc {
   font-size: 13px;
-  color: #64748b;
+  color: #6b7280;
 }
