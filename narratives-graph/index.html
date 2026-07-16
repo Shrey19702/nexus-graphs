@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Subtopic Graph</title>
+  <title>Narratives</title>
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
 </head>
@@ -13,10 +13,13 @@
       <a href="../" class="chrome-home" aria-label="All graphs">Nexus</a>
       <nav class="view-nav" aria-label="Graph views">
         <a href="../platform-profiles/" class="view-nav-link">Profiles</a>
-        <a href="../topic-graph/" class="view-nav-link is-active" aria-current="page">Subtopics</a>
+        <a href="../narratives-graph/" class="view-nav-link is-active" aria-current="page">Narratives</a>
       </nav>
     </div>
     <div id="chrome-right">
+      <button type="button" id="overview-toggle" class="chrome-btn" aria-expanded="false" aria-controls="panel">
+        Overview
+      </button>
       <button type="button" id="fit-view" class="chrome-btn">Fit to view</button>
       <button type="button" id="settings-toggle" class="chrome-btn" aria-expanded="false" aria-controls="settings">
         Settings
@@ -33,12 +36,12 @@
       <section class="settings-section">
         <h3 class="settings-section-title">Node sizes</h3>
         <div class="setting-row" data-key="topicSize">
-          <label class="setting-label" for="set-topicSize">Topic</label>
+          <label class="setting-label" for="set-topicSize">Narrative</label>
           <input type="range" id="set-topicSize" min="12" max="80" step="1" />
           <input type="number" id="num-topicSize" min="12" max="80" step="1" />
         </div>
         <div class="setting-row" data-key="narrativeSize">
-          <label class="setting-label" for="set-narrativeSize">Narrative</label>
+          <label class="setting-label" for="set-narrativeSize">Topic</label>
           <input type="range" id="set-narrativeSize" min="6" max="48" step="1" />
           <input type="number" id="num-narrativeSize" min="6" max="48" step="1" />
         </div>
@@ -49,12 +52,30 @@
         </div>
       </section>
       <section class="settings-section">
+        <h3 class="settings-section-title">Sorting</h3>
+        <label class="setting-check" for="set-reverseStanceSort">
+          <input type="checkbox" id="set-reverseStanceSort" />
+          <span>Reverse sentiment order</span>
+        </label>
+        <p class="setting-hint">Flips the default sort order used in lists and post packing.</p>
+      </section>
+      <section class="settings-section">
+        <h3 class="settings-section-title">Post sentiments</h3>
+        <p class="setting-hint">Uncheck to hide that sentiment everywhere — graph, bars, labels, and lists.</p>
+        <div id="stance-visibility" class="stance-visibility" role="group" aria-label="Visible post sentiments"></div>
+      </section>
+      <section class="settings-section">
         <h3 class="settings-section-title">Visibility</h3>
         <label class="setting-check" for="set-showEmptyTopics">
           <input type="checkbox" id="set-showEmptyTopics" />
-          <span>Show empty topics</span>
+          <span>Show empty narratives</span>
         </label>
-        <p class="setting-hint">Parent topics with no narratives (and no posts) are hidden by default.</p>
+        <p class="setting-hint">Narratives with no topics are hidden by default.</p>
+        <label class="setting-check" for="set-showEmptyPostTopics">
+          <input type="checkbox" id="set-showEmptyPostTopics" />
+          <span>Show topics with no posts</span>
+        </label>
+        <p class="setting-hint">Topics that have no linked posts are hidden by default.</p>
       </section>
       <div class="settings-actions">
         <button type="button" id="settings-reset" class="settings-btn settings-btn-muted">Reset</button>

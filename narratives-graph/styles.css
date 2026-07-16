@@ -414,20 +414,26 @@ body {
   font-size: 12px;
   width: 100%;
   margin: 0;
-  padding: 6px 8px;
-  border: 1px solid transparent;
+  padding: 7px 10px;
+  border: 1px solid var(--edge);
   border-radius: 8px;
-  background: transparent;
+  background: var(--surface, #fff);
   color: inherit;
   text-align: left;
   cursor: pointer;
   font-family: inherit;
-  transition: background 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
+  transition: background 0.12s ease, border-color 0.12s ease, opacity 0.12s ease, box-shadow 0.12s ease;
 }
 
-.stance-legend-row:hover {
-  background: color-mix(in srgb, var(--edge) 55%, white);
-  border-color: var(--edge);
+.stance-legend-row.is-clickable:hover {
+  background: color-mix(in srgb, var(--edge) 45%, white);
+  border-color: color-mix(in srgb, var(--selection, #2563eb) 35%, var(--edge));
+  box-shadow: 0 1px 0 rgba(31, 41, 55, 0.04);
+}
+
+.stance-legend-row.is-clickable:hover .stance-legend-name {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .stance-legend-row.is-active {
@@ -437,12 +443,6 @@ body {
 
 .stance-legend-row.is-dimmed {
   opacity: 0.42;
-}
-
-.stance-filter-hint {
-  font-size: 11px;
-  color: var(--muted);
-  line-height: 1.35;
 }
 
 .stance-swatch {
@@ -459,6 +459,84 @@ body {
 .stance-legend-meta {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
+}
+
+.panel-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.panel-list-header .panel-label {
+  margin: 0;
+}
+
+.panel-sort-toggle {
+  appearance: none;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--edge);
+  background: var(--surface, #fff);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 4px 7px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  line-height: 1;
+}
+
+.panel-sort-icon {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+.panel-sort-label {
+  line-height: 1;
+}
+
+.panel-sort-toggle:hover {
+  color: var(--text);
+  background: var(--surface-muted);
+}
+
+.panel-sort-toggle[aria-pressed="true"] {
+  color: var(--selection);
+  border-color: color-mix(in srgb, var(--selection, #2563eb) 45%, white);
+  background: color-mix(in srgb, var(--selection, #2563eb) 10%, white);
+}
+
+.panel-search {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--edge);
+  border-radius: 8px;
+  background: var(--bg, #fafbfc);
+  color: var(--text);
+  font-size: 12px;
+  font-family: inherit;
+}
+
+.panel-search:focus {
+  outline: 2px solid color-mix(in srgb, var(--selection, #2563eb) 45%, white);
+  outline-offset: 1px;
+}
+
+.panel-list-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .meta-grid {
@@ -632,6 +710,82 @@ body.panel-open #chrome {
 
 .settings-btn:hover {
   background: #374151;
+}
+
+.chrome-btn.is-active {
+  background: var(--surface-muted);
+  border-color: #94a3b8;
+}
+
+.stance-visibility {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stance-visibility-row {
+  gap: 8px;
+}
+
+.stance-visibility-row .stance-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.overview-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.overview-stat {
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--edge);
+  border-radius: 8px;
+}
+
+.overview-stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  line-height: 1.1;
+}
+
+.overview-stat-label {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.overview-narrative-list {
+  gap: 12px;
+}
+
+.overview-narrative-card {
+  background: var(--bg);
+  border-color: var(--edge);
+}
+
+.overview-narrative-card:hover {
+  background: var(--surface-muted);
+  border-color: #cbd5e1;
+}
+
+.overview-stance-bar {
+  margin-top: 10px;
+  height: 8px;
+}
+
+.overview-stance-meta {
+  margin-top: 8px;
 }
 
 .settings-btn-muted {

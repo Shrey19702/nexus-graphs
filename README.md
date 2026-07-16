@@ -1,12 +1,12 @@
 # Nexus Graph Visualizations
 
-Interactive Canvas + D3 force graphs for platform profiles and subtopics.
+Interactive Canvas + D3 force graphs.
 
 | View | Path |
 |------|------|
 | Hub | `/` |
 | Profiles | `/platform-profiles/` |
-| Subtopics | `/topic-graph/` |
+| Narratives | `/narratives-graph/` |
 
 ## Local
 

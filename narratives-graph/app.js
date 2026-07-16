@@ -19,7 +19,7 @@
     dimAlpha: 0.22,
   };
 
-  // Dull, distinct family colors — one per mega_mega_node
+  // Dull, distinct family colors — one per narrative_node
   const FAMILY_PALETTE = [
     "#7d8b99",
     "#8a7f72",
@@ -38,45 +38,53 @@
 
   const POST_R_DEFAULT = 3;
   const LINK_GAP = 1.5;
-  const NARRATIVE_SIZE_DEFAULT = 17;
-  const TOPIC_SIZE_DEFAULT = 35;
+  const NARRATIVE_SIZE_DEFAULT = 15;
+  const TOPIC_SIZE_DEFAULT = 50;
   const PARENT_LINK_GAP = 6;
   // Base pack pitch for equal-sized families; large post clouds inflate this per-parent
   const CLUSTER_PITCH = 220;
   const CLUSTER_PACK_PAD = 36;
-  const FOREIGN_MEGA_REPEL = 32;
-  const FOREIGN_MEGA_DIST_MAX = 120;
-  const MEGA_MEGA_REPEL = 220;
-  const MEGA_MEGA_REPEL_DIST = 280;
+  const FOREIGN_TOPIC_REPEL = 32;
+  const FOREIGN_TOPIC_DIST_MAX = 120;
+  const NARRATIVE_HUB_REPEL = 220;
+  const NARRATIVE_HUB_REPEL_DIST = 280;
   const FAMILY_COLLIDE_PAD = 28;
   const TOPIC_COLLIDE_PAD = 6;
-  // Long cool-downs so the user sees clusters animate into place.
-  // Initial settle is slowest; anchor overlap repairs are shorter but still visible.
-  const INITIAL_SIMULATION_ALPHA = 0.98;
+  // Initial settle should reach a readable layout quickly; local repairs stay shorter.
+  const INITIAL_SIMULATION_ALPHA = 0.82;
   const INITIAL_SIMULATION_ALPHA_MIN = 0.001;
-  const INITIAL_SIMULATION_ALPHA_DECAY = 0.010;
-  const INITIAL_SIMULATION_VELOCITY_DECAY = 0.55;
+  const INITIAL_SIMULATION_ALPHA_DECAY = 0.034;
+  const INITIAL_SIMULATION_VELOCITY_DECAY = 0.62;
   const LOCAL_SETTLE_ALPHA = 0.32;
   const LOCAL_SETTLE_ALPHA_DECAY = 0.035;
   const POST_LERP = 0.24;
   const POST_LERP_EPSILON = 0.04;
   // Labels only after deep zoom so text doesn't blanket the graph (~4.5× fit zoom)
   const LABEL_ZOOM_MULT = 4.5;
-  const MEGA_LABEL_MAX_CHARS = 22;
-  const MEGA_MEGA_LABEL_MAX_CHARS = 26;
-  // World-space font size for parent-topic labels (scales on screen with zoom)
-  const MEGA_MEGA_LABEL_SIZE = 10;
-  // Political axis used to order narratives in the parent-topic panel
-  const NARRATIVE_SORT_STANCES = [
-    "pro_government",
-    "pro_cjp",
-    "anti_cjp",
+  const TOPIC_LABEL_MAX_CHARS = 22;
+  const NARRATIVE_HUB_LABEL_MAX_CHARS = 26;
+  const SUBTOPIC_LABEL_MAX_CHARS = 20;
+  // World-space font size for narrative labels (scales on screen with zoom)
+  const NARRATIVE_HUB_LABEL_SIZE = 10;
+  // Political axis used to order topics in the narrative panel (anti → pro default)
+  const TOPIC_SORT_STANCES_ANTI_FIRST = [
     "anti_government",
+    "anti_cjp",
+    "pro_cjp",
+    "pro_government",
   ];
+  const TOPIC_SORT_STANCES_PRO_FIRST = [...TOPIC_SORT_STANCES_ANTI_FIRST].reverse();
+
+  function activeTopicSortStances() {
+    return settings.reverseStanceSort
+      ? TOPIC_SORT_STANCES_PRO_FIRST
+      : TOPIC_SORT_STANCES_ANTI_FIRST;
+  }
   const GOLDEN_ANGLE = 2.399963229728653;
   const CLICK_MOVE_PX = 5;
-  const DATA_FILE = "15jul-narrative-graph.json";
+  const DATA_FILE = "graph2_pillar_topic.json";
   const SENTIMENT_FILE = "all-nexus-data-till-15jul.csv";
+  document.title = "Narratives";
   const PANEL_MAX_W = 400;
 
   const SETTINGS_DEFAULTS = {
@@ -84,19 +92,57 @@
     narrativeSize: NARRATIVE_SIZE_DEFAULT,
     postSize: POST_R_DEFAULT,
     showEmptyTopics: false,
+    showEmptyPostTopics: false,
+    // Default: anti first. When true, reverse to pro → anti.
+    reverseStanceSort: false,
   };
-  const settings = { ...SETTINGS_DEFAULTS };
 
-  // Stance palette (pro → anti). Borders use these when a narrative is selected.
-  const STANCE_ORDER = [
-    "pro_government",
-    "pro_cjp",
-    "neutral_news",
-    "unclear",
-    "mixed",
-    "anti_cjp",
+  // Stance axis (anti → pro by default; toggle reverses for panels, lists, and packing)
+  const STANCE_ORDER_ANTI_FIRST = [
     "anti_government",
+    "anti_cjp",
+    "mixed",
+    "unclear",
+    "neutral_news",
+    "pro_cjp",
+    "pro_government",
   ];
+  const STANCE_ORDER_PRO_FIRST = [...STANCE_ORDER_ANTI_FIRST].reverse();
+  const UNKNOWN_STANCE = "unknown";
+
+  function buildDefaultStanceVisibility() {
+    const map = Object.create(null);
+    const visibleByDefault = new Set([
+      "anti_government",
+      "anti_cjp",
+      "neutral_news",
+      "pro_cjp",
+      "pro_government",
+    ]);
+    for (const key of [...STANCE_ORDER_ANTI_FIRST, UNKNOWN_STANCE]) {
+      map[key] = visibleByDefault.has(key);
+    }
+    return map;
+  }
+
+  function stanceVisibilityDiffersFromDefault() {
+    const defaults = buildDefaultStanceVisibility();
+    for (const key of Object.keys(defaults)) {
+      if (Boolean(settings.stanceVisibility[key]) !== Boolean(defaults[key])) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  const settings = {
+    ...SETTINGS_DEFAULTS,
+    stanceVisibility: buildDefaultStanceVisibility(),
+  };
+
+  function activeStanceOrder() {
+    return settings.reverseStanceSort ? STANCE_ORDER_PRO_FIRST : STANCE_ORDER_ANTI_FIRST;
+  }
   // Civic Signal sentiment palette (posts + stance UI)
   const STANCE_COLORS = {
     pro_government: "#1B7F5C",
@@ -116,13 +162,13 @@
     anti_cjp: "Anti CJP",
     anti_government: "Anti government",
   };
-  const UNKNOWN_STANCE = "unknown";
   const BLAND_GREY = "#E9ECF0";
 
   const canvas = document.getElementById("graph");
   const ctx = canvas.getContext("2d");
   const zoomLabel = document.getElementById("zoom-label");
   const fitViewBtn = document.getElementById("fit-view");
+  const overviewToggle = document.getElementById("overview-toggle");
   const panelEl = document.getElementById("panel");
   const panelClose = document.getElementById("panel-close");
   const panelTitle = document.getElementById("panel-title");
@@ -136,19 +182,23 @@
     nodes: [],
     links: [],
     byId: new Map(),
-    parentTopics: [],
     narratives: [],
+    topics: [],
+    subtopics: [],
     posts: [],
     structuralNodes: [],
     structuralLinks: [],
-    megasByParent: new Map(),
-    postsByMega: new Map(),
+    topicsByNarrative: new Map(),
+    subtopicsByTopic: new Map(),
+    postsByParent: new Map(),
     transform: d3.zoomIdentity,
     simulation: null,
     hovered: null,
     selected: null,
     highlightIds: null,
     stanceFilter: null,
+    panelListQuery: "",
+    panelMode: null,
     dragging: null,
     baselineZoom: 1,
     width: 0,
@@ -169,29 +219,38 @@
     return settings.postSize;
   }
 
-  function narrativeSizeRange() {
-    const base = settings.narrativeSize;
+  function subtopicSizeRange() {
+    const base = settings.narrativeSize * 0.75;
     return { min: base * 0.7, max: base * 1.3 };
   }
 
-  function topicSizeRange() {
+  function narrativeHubSizeRange() {
     const base = settings.topicSize;
     return { min: base * 0.8, max: base * 1.2 };
   }
 
+  function topicSizeRange() {
+    const base = settings.narrativeSize;
+    return { min: base * 0.7, max: base * 1.3 };
+  }
+
   function nodeRadius(d) {
-    if (d.type === "mega_mega_node" || d.type === "mega_node") return d.radius;
+    if (d.type === "narrative_node" || d.type === "topic_node" || d.type === "subtopic_node") return d.radius;
     return postR();
   }
 
   function applyNodeRadii() {
+    const pillar = narrativeHubSizeRange();
     const topic = topicSizeRange();
-    const narrative = narrativeSizeRange();
+    const subtopic = subtopicSizeRange();
     for (const n of state.nodes) {
-      if (n.type === "mega_mega_node") {
-        n.radius = scaleRadius(n.degree, topic.min, topic.max, 160);
-      } else if (n.type === "mega_node") {
-        n.radius = scaleRadius(n.degree, narrative.min, narrative.max, 120);
+      if (n.type === "narrative_node") {
+        n.radius = scaleRadius(n.degree, pillar.min, pillar.max, 160);
+      } else if (n.type === "topic_node") {
+        n.radius = scaleRadius(n.degree, topic.min, topic.max, 120);
+        n.farthestPostDistance = 0;
+      } else if (n.type === "subtopic_node") {
+        n.radius = scaleRadius(n.degree, subtopic.min, subtopic.max, 80);
         n.farthestPostDistance = 0;
       } else {
         n.radius = postR();
@@ -207,35 +266,53 @@
     return minR + n * (maxR - minR);
   }
 
-  // Estimate the farthest post *centre* from a narrative. This is the structural
-  // collision radius: posts are outside the D3 simulation, so their outermost
-  // centre must reserve the space they visibly occupy.
-  function estimateFarthestPostDistance(mega, postCount) {
-    const count = Math.max(0, postCount ?? mega.childPostCount ?? 0);
-    if (!count) return mega.radius;
+  // Estimate the farthest post centre from a hub (topic or subtopic).
+  function estimateFarthestPostDistance(hub, postCount) {
+    const count = Math.max(0, postCount ?? hub.childPostCount ?? 0);
+    if (!count) return hub.radius;
     const pr = postR();
     const packR = Math.sqrt(count) * (pr + 2.1) * 0.82;
-    return mega.radius + LINK_GAP + pr + packR;
+    return hub.radius + LINK_GAP + pr + packR;
   }
 
   function refreshClusterExtents() {
-    for (const n of state.narratives) {
-      n.childPostCount = state.postsByMega.get(n.id)?.length || 0;
+    for (const st of state.subtopics) {
+      st.childPostCount = visiblePostsForParent(st).length;
+      st.topicCollisionRadius = Math.max(
+        st.radius,
+        estimateFarthestPostDistance(st, st.childPostCount),
+        st.farthestPostDistance || 0
+      );
+      st.cloudRadius = st.topicCollisionRadius + postR();
+    }
+    for (const n of state.topics) {
+      const subtopics = state.subtopicsByTopic.get(n.id) || [];
+      let outer = n.radius;
+      for (const st of subtopics) {
+        if (isExcluded(st)) continue;
+        const lx = st.localX || 0;
+        const ly = st.localY || 0;
+        const dist = Math.hypot(lx, ly) + (st.cloudRadius || st.topicCollisionRadius || st.radius);
+        outer = Math.max(outer, dist);
+      }
+      const directPosts = visiblePostsForParent(n);
+      if (directPosts.length) {
+        outer = Math.max(outer, estimateFarthestPostDistance(n, directPosts.length));
+      }
+      n.childPostCount = visiblePostsForTopic(n).length;
       n.topicCollisionRadius = Math.max(
         n.radius,
-        estimateFarthestPostDistance(n, n.childPostCount),
+        outer,
         n.farthestPostDistance || 0
       );
-      // Retain the visual edge extent for family sizing; only the centre
-      // distance participates in topic collision.
       n.cloudRadius = n.topicCollisionRadius + postR();
     }
-    for (const n of state.parentTopics) {
-      const megas = state.megasByParent.get(n.id) || [];
+    for (const n of state.narratives) {
+      const topics = state.topicsByNarrative.get(n.id) || [];
       let outer = n.radius;
-      for (const m of megas) {
-        // Hub radius: orbit distance to narrative + that narrative's post cloud.
-        outer = Math.max(outer, parentLinkDistance(n, m) + topicCollisionRadius(m));
+      for (const t of topics) {
+        if (isExcluded(t)) continue;
+        outer = Math.max(outer, narrativeLinkDistance(n, t) + topicCollisionRadius(t));
       }
       n.clusterExtent = outer + CLUSTER_PACK_PAD;
     }
@@ -451,36 +528,37 @@
     let matched = 0;
     for (const n of state.nodes) {
       if (n.type !== "regular_node") continue;
-      const row = byPostId.get(String(n.rawId));
+      const row = byPostId.get(String(n.rawPostId));
       if (!row) {
         n.sentiment = null;
         n.stance = null;
-        n.stanceIndex = STANCE_ORDER.length;
+        n.stanceIndex = activeStanceOrder().length;
         continue;
       }
       matched += 1;
       n.sentiment = row;
       n.stance = row.stance || null;
-      const idx = STANCE_ORDER.indexOf(n.stance);
-      n.stanceIndex = idx >= 0 ? idx : STANCE_ORDER.length;
+      const idx = activeStanceOrder().indexOf(n.stance);
+      n.stanceIndex = idx >= 0 ? idx : activeStanceOrder().length;
     }
     console.info(`Sentiment matched ${matched} / ${byPostId.size} CSV rows to graph posts`);
   }
 
   function computeStanceDistribution(posts) {
+    const visible = uiVisiblePosts(posts);
+    const keys = visibleStanceKeys();
     const counts = Object.create(null);
-    for (const key of STANCE_ORDER) counts[key] = 0;
-    counts[UNKNOWN_STANCE] = 0;
-    for (const p of posts) {
+    for (const key of keys) counts[key] = 0;
+    for (const p of visible) {
       const key = stanceKey(p);
-      counts[key] = (counts[key] || 0) + 1;
+      if (!(key in counts)) continue;
+      counts[key] += 1;
     }
-    const total = posts.length;
+    const total = visible.length;
     const entries = [];
-    for (const key of [...STANCE_ORDER, UNKNOWN_STANCE]) {
+    for (const key of keys) {
       const postCount = counts[key] || 0;
-      if (!postCount && key === UNKNOWN_STANCE) continue;
-      if (!postCount && !counts[key]) continue;
+      if (!postCount) continue;
       entries.push({
         stance: key,
         post_count: postCount,
@@ -493,55 +571,54 @@
   }
 
   function topicCollisionRadius(d) {
-    return d.type === "mega_node"
+    return d.type === "topic_node"
       ? d.topicCollisionRadius || d.radius
       : d.radius || postR();
   }
 
-  function parentLinkDistance(parent, mega) {
-    return parent.radius + PARENT_LINK_GAP + topicCollisionRadius(mega);
+  function narrativeLinkDistance(pillar, topic) {
+    return pillar.radius + PARENT_LINK_GAP + topicCollisionRadius(topic);
   }
 
-  // Translate a parent hub and its narratives together so family spacing never
-  // leaves children behind (which previously yanked parents back into a pile).
-  function nudgeFamilyVelocity(parent, vx, vy) {
-    parent.vx = (parent.vx || 0) + vx;
-    parent.vy = (parent.vy || 0) + vy;
-    for (const mega of state.megasByParent.get(parent.id) || []) {
-      mega.vx = (mega.vx || 0) + vx;
-      mega.vy = (mega.vy || 0) + vy;
+  // Translate a pillar hub and its topics together so family spacing stays intact.
+  function nudgeFamilyVelocity(pillar, vx, vy) {
+    pillar.vx = (pillar.vx || 0) + vx;
+    pillar.vy = (pillar.vy || 0) + vy;
+    for (const topic of state.topicsByNarrative.get(pillar.id) || []) {
+      topic.vx = (topic.vx || 0) + vx;
+      topic.vy = (topic.vy || 0) + vy;
     }
   }
 
-  function translateFamily(parent, dx, dy) {
-    parent.x += dx;
-    parent.y += dy;
-    for (const mega of state.megasByParent.get(parent.id) || []) {
-      mega.x += dx;
-      mega.y += dy;
+  function translateFamily(pillar, dx, dy) {
+    pillar.x += dx;
+    pillar.y += dy;
+    for (const topic of state.topicsByNarrative.get(pillar.id) || []) {
+      topic.x += dx;
+      topic.y += dy;
     }
   }
 
-  // Parent is the sole attractor: only narratives receive spring force.
-  function forceParentAttract(strength = 0.95) {
+  // Narrative is the sole attractor: only topics receive spring force.
+  function forceNarrativeAttract(strength = 0.95) {
     let pairs = [];
     function force(alpha) {
       const s = strength * alpha;
-      for (const { parent, mega } of pairs) {
-        if (!Number.isFinite(parent.x) || !Number.isFinite(mega.x)) continue;
-        if (mega.fx != null || mega.fy != null) continue;
-        let dx = mega.x - parent.x;
-        let dy = mega.y - parent.y;
+      for (const { pillar, topic } of pairs) {
+        if (!Number.isFinite(pillar.x) || !Number.isFinite(topic.x)) continue;
+        if (topic.fx != null || topic.fy != null) continue;
+        let dx = topic.x - pillar.x;
+        let dy = topic.y - pillar.y;
         let dist = Math.hypot(dx, dy);
         if (dist < 1e-6) {
           dx = 0.01;
           dy = 0;
           dist = 0.01;
         }
-        const target = parentLinkDistance(parent, mega);
+        const target = narrativeLinkDistance(pillar, topic);
         const mag = ((dist - target) / dist) * s;
-        mega.vx -= dx * mag;
-        mega.vy -= dy * mag;
+        topic.vx -= dx * mag;
+        topic.vy -= dy * mag;
       }
     }
     force.initialize = (nodes) => {
@@ -551,30 +628,29 @@
         const s = typeof link.source === "object" ? link.source : byId.get(link.source);
         const t = typeof link.target === "object" ? link.target : byId.get(link.target);
         if (!s || !t) continue;
-        if (s.type === "mega_mega_node" && t.type === "mega_node") {
-          pairs.push({ parent: s, mega: t });
-        } else if (t.type === "mega_mega_node" && s.type === "mega_node") {
-          pairs.push({ parent: t, mega: s });
+        if (s.type === "narrative_node" && t.type === "topic_node") {
+          pairs.push({ pillar: s, topic: t });
+        } else if (t.type === "narrative_node" && s.type === "topic_node") {
+          pairs.push({ pillar: t, topic: s });
         }
       }
     };
     return force;
   }
 
-  // Narratives collide with each other and with foreign parent hubs.
-  // Own-parent pairs use the attractor force; parent↔parent uses family collide.
+  // Topics collide with each other and with foreign narrative hubs.
   function forceTopicCollide(strength = 1.2) {
-    let megas = [];
-    let parents = [];
+    let topics = [];
+    let pillars = [];
     function force(alpha) {
       const s = strength * alpha;
-      for (let i = 0; i < megas.length; i += 1) {
-        const a = megas[i];
+      for (let i = 0; i < topics.length; i += 1) {
+        const a = topics[i];
         if (!Number.isFinite(a.x) || !Number.isFinite(a.y)) continue;
         if (a.fx != null || a.fy != null) continue;
 
-        for (let j = i + 1; j < megas.length; j += 1) {
-          const b = megas[j];
+        for (let j = i + 1; j < topics.length; j += 1) {
+          const b = topics[j];
           if (!Number.isFinite(b.x) || !Number.isFinite(b.y)) continue;
           let dx = b.x - a.x;
           let dy = b.y - a.y;
@@ -601,13 +677,13 @@
           }
         }
 
-        for (const parent of parents) {
-          if (a.parentId === parent.id) continue;
-          if (!Number.isFinite(parent.x) || !Number.isFinite(parent.y)) continue;
-          let dx = a.x - parent.x;
-          let dy = a.y - parent.y;
+        for (const pillar of pillars) {
+          if (a.parentId === pillar.id) continue;
+          if (!Number.isFinite(pillar.x) || !Number.isFinite(pillar.y)) continue;
+          let dx = a.x - pillar.x;
+          let dy = a.y - pillar.y;
           let dist = Math.hypot(dx, dy);
-          const minDist = topicCollisionRadius(a) + parent.radius + TOPIC_COLLIDE_PAD;
+          const minDist = topicCollisionRadius(a) + pillar.radius + TOPIC_COLLIDE_PAD;
           if (dist >= minDist) continue;
           if (dist < 1e-6) {
             dx = 0.01;
@@ -621,24 +697,23 @@
       }
     }
     force.initialize = (nodes) => {
-      megas = nodes.filter((n) => n.type === "mega_node");
-      parents = nodes.filter((n) => n.type === "mega_mega_node");
+      topics = nodes.filter((n) => n.type === "topic_node");
+      pillars = nodes.filter((n) => n.type === "narrative_node");
     };
     return force;
   }
 
-  // Geometric cleanup that preserves the parent-as-hub rule.
   function resolveTopicCollisions(passes = 18) {
-    const parents = activeStructuralNodes().filter((n) => n.type === "mega_mega_node");
-    const megas = activeStructuralNodes().filter((n) => n.type === "mega_node");
+    const pillars = activeStructuralNodes().filter((n) => n.type === "narrative_node");
+    const topics = activeStructuralNodes().filter((n) => n.type === "topic_node");
 
     for (let pass = 0; pass < passes; pass += 1) {
       let moved = false;
 
-      for (let i = 0; i < parents.length; i += 1) {
-        const a = parents[i];
-        for (let j = i + 1; j < parents.length; j += 1) {
-          const b = parents[j];
+      for (let i = 0; i < pillars.length; i += 1) {
+        const a = pillars[i];
+        for (let j = i + 1; j < pillars.length; j += 1) {
+          const b = pillars[j];
           let dx = b.x - a.x;
           let dy = b.y - a.y;
           let dist = Math.hypot(dx, dy);
@@ -669,11 +744,11 @@
         }
       }
 
-      for (let i = 0; i < megas.length; i += 1) {
-        const a = megas[i];
+      for (let i = 0; i < topics.length; i += 1) {
+        const a = topics[i];
         if (a.fx != null || a.fy != null) continue;
-        for (let j = i + 1; j < megas.length; j += 1) {
-          const b = megas[j];
+        for (let j = i + 1; j < topics.length; j += 1) {
+          const b = topics[j];
           let dx = b.x - a.x;
           let dy = b.y - a.y;
           let dist = Math.hypot(dx, dy);
@@ -697,12 +772,12 @@
           moved = true;
         }
 
-        const parent = a.parentId != null ? state.byId.get(a.parentId) : null;
-        if (parent && Number.isFinite(parent.x)) {
-          let dx = a.x - parent.x;
-          let dy = a.y - parent.y;
+        const pillar = a.parentId != null ? state.byId.get(a.parentId) : null;
+        if (pillar && Number.isFinite(pillar.x)) {
+          let dx = a.x - pillar.x;
+          let dy = a.y - pillar.y;
           let dist = Math.hypot(dx, dy);
-          const minDist = parentLinkDistance(parent, a);
+          const minDist = narrativeLinkDistance(pillar, a);
           if (dist < minDist) {
             if (dist < 1e-6) {
               dx = 0.01;
@@ -710,8 +785,8 @@
               dist = 0.01;
             }
             const scale = minDist / dist;
-            a.x = parent.x + dx * scale;
-            a.y = parent.y + dy * scale;
+            a.x = pillar.x + dx * scale;
+            a.y = pillar.y + dy * scale;
             moved = true;
           }
         }
@@ -721,16 +796,15 @@
     }
   }
 
-  // Aggregate family collision: move each parent hub with its narratives.
   function forceFamilyCollide(strength = 1.15) {
-    let parents = [];
+    let pillars = [];
     function force(alpha) {
       const s = strength * alpha;
-      for (let i = 0; i < parents.length; i += 1) {
-        const a = parents[i];
+      for (let i = 0; i < pillars.length; i += 1) {
+        const a = pillars[i];
         if (!Number.isFinite(a.x) || !Number.isFinite(a.y)) continue;
-        for (let j = i + 1; j < parents.length; j += 1) {
-          const b = parents[j];
+        for (let j = i + 1; j < pillars.length; j += 1) {
+          const b = pillars[j];
           if (!Number.isFinite(b.x) || !Number.isFinite(b.y)) continue;
           let dx = b.x - a.x;
           let dy = b.y - a.y;
@@ -763,23 +837,22 @@
     }
 
     force.initialize = (initNodes) => {
-      parents = initNodes.filter((n) => n.type === "mega_mega_node");
+      pillars = initNodes.filter((n) => n.type === "narrative_node");
     };
     return force;
   }
 
-  // Parent hubs repel as rigid family discs so topic-topic gaps stay intact.
   function forceFamilyRepel(strengthMag, distanceMax) {
-    let parents = [];
+    let pillars = [];
     const dist2Max = distanceMax * distanceMax;
     function force(alpha) {
       const s = strengthMag * alpha;
-      for (let i = 0; i < parents.length; i += 1) {
-        const a = parents[i];
+      for (let i = 0; i < pillars.length; i += 1) {
+        const a = pillars[i];
         if (!Number.isFinite(a.x) || !Number.isFinite(a.y)) continue;
         if (a.fx != null || a.fy != null) continue;
-        for (let j = i + 1; j < parents.length; j += 1) {
-          const b = parents[j];
+        for (let j = i + 1; j < pillars.length; j += 1) {
+          const b = pillars[j];
           if (!Number.isFinite(b.x) || !Number.isFinite(b.y)) continue;
           let dx = b.x - a.x;
           let dy = b.y - a.y;
@@ -800,7 +873,7 @@
       }
     }
     force.initialize = (nodes) => {
-      parents = nodes.filter((n) => n.type === "mega_mega_node");
+      pillars = nodes.filter((n) => n.type === "narrative_node");
     };
     return force;
   }
@@ -825,106 +898,54 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  function typedIndex(nodes) {
-    const byTypeRaw = {
-      mega_mega_node: new Map(),
-      mega_node: new Map(),
-      regular_node: new Map(),
-    };
-    for (const n of nodes) {
-      byTypeRaw[n.type]?.set(n.rawId, n);
+  function linkKind(src, tgt) {
+    const types = new Set([src.type, tgt.type]);
+    if (types.has("narrative_node") && types.has("topic_node")) return "narrative_link";
+    if (types.has("topic_node") && types.has("subtopic_node")) return "topic_link";
+    if (types.has("regular_node") && (types.has("topic_node") || types.has("subtopic_node"))) {
+      return "post_link";
     }
-    return byTypeRaw;
-  }
-
-  // Resolve ambiguous string endpoints using type priority + self-link = parent→child.
-  function resolveEndpoint(rawId, role, byTypeRaw, otherRawId) {
-    if (role === "self-parent") return byTypeRaw.mega_mega_node.get(rawId) || null;
-    if (role === "self-child") return byTypeRaw.mega_node.get(rawId) || null;
-
-    if (role === "target") {
-      return (
-        byTypeRaw.regular_node.get(rawId) ||
-        byTypeRaw.mega_node.get(rawId) ||
-        byTypeRaw.mega_mega_node.get(rawId) ||
-        null
-      );
-    }
-
-    // source: prefer the parent of whatever the target is expected to be
-    const targetGuess =
-      byTypeRaw.regular_node.get(otherRawId) ||
-      byTypeRaw.mega_node.get(otherRawId) ||
-      byTypeRaw.mega_mega_node.get(otherRawId);
-
-    if (targetGuess?.type === "regular_node") {
-      return (
-        byTypeRaw.mega_node.get(rawId) ||
-        byTypeRaw.mega_mega_node.get(rawId) ||
-        null
-      );
-    }
-    if (targetGuess?.type === "mega_node") {
-      return (
-        byTypeRaw.mega_mega_node.get(rawId) ||
-        byTypeRaw.mega_node.get(rawId) ||
-        null
-      );
-    }
-    return (
-      byTypeRaw.mega_mega_node.get(rawId) ||
-      byTypeRaw.mega_node.get(rawId) ||
-      byTypeRaw.regular_node.get(rawId) ||
-      null
-    );
+    return "other";
   }
 
   function loadGraph(data) {
-    // Keep every node record; assign a fresh unique numeric id (ignore string collisions).
     const nodes = (data.nodes || []).map((n, i) => ({
       id: i,
       rawId: n.id,
-      type: n.type,
+      rawPostId:
+        n.type === "regular_node" && String(n.id).startsWith("post_")
+          ? String(n.id).slice(5)
+          : n.type === "regular_node"
+            ? String(n.id)
+            : null,
+      type: n.type === "pillar_node" ? "narrative_node" : n.type,
       label: n.label || "",
       radius: POST_R_DEFAULT,
       degree: 0,
       parentId: null,
       parentIds: [],
       displayLabel: "",
+      localX: 0,
+      localY: 0,
     }));
 
-    const byTypeRaw = typedIndex(nodes);
+    const byRawId = new Map(nodes.map((n) => [n.rawId, n]));
     const byId = new Map(nodes.map((n) => [n.id, n]));
 
     const links = [];
     for (const l of data.links || []) {
-      const sourceRaw = l.source;
-      const targetRaw = l.target;
-      let src;
-      let tgt;
-
-      if (sourceRaw === targetRaw) {
-        src = resolveEndpoint(sourceRaw, "self-parent", byTypeRaw, targetRaw);
-        tgt = resolveEndpoint(targetRaw, "self-child", byTypeRaw, sourceRaw);
-      } else {
-        tgt = resolveEndpoint(targetRaw, "target", byTypeRaw, sourceRaw);
-        src = resolveEndpoint(sourceRaw, "source", byTypeRaw, targetRaw);
-      }
-
+      const src = byRawId.get(l.source);
+      const tgt = byRawId.get(l.target);
       if (!src || !tgt || src.id === tgt.id) continue;
       links.push({
         source: src.id,
         target: tgt.id,
-        kind:
-          src.type === "mega_mega_node" || tgt.type === "mega_mega_node"
-            ? "parent_link"
-            : "post_link",
+        kind: linkKind(src, tgt),
       });
     }
 
-    // Parent: mega_mega → mega
-    const megaParents = new Map();
-    // Parent: mega → regular
+    const topicPillars = new Map();
+    const subtopicTopics = new Map();
     const postParents = new Map();
 
     for (const l of links) {
@@ -932,19 +953,33 @@
       const tgt = byId.get(l.target);
       if (!src || !tgt) continue;
 
-      if (src.type === "mega_mega_node" && tgt.type === "mega_node") {
-        if (!megaParents.has(tgt.id)) megaParents.set(tgt.id, []);
-        const list = megaParents.get(tgt.id);
+      if (src.type === "narrative_node" && tgt.type === "topic_node") {
+        if (!topicPillars.has(tgt.id)) topicPillars.set(tgt.id, []);
+        const list = topicPillars.get(tgt.id);
         if (!list.includes(src.id)) list.push(src.id);
-      } else if (tgt.type === "mega_mega_node" && src.type === "mega_node") {
-        if (!megaParents.has(src.id)) megaParents.set(src.id, []);
-        const list = megaParents.get(src.id);
+      } else if (tgt.type === "narrative_node" && src.type === "topic_node") {
+        if (!topicPillars.has(src.id)) topicPillars.set(src.id, []);
+        const list = topicPillars.get(src.id);
         if (!list.includes(tgt.id)) list.push(tgt.id);
-      } else if (src.type === "mega_node" && tgt.type === "regular_node") {
+      } else if (src.type === "topic_node" && tgt.type === "subtopic_node") {
+        if (!subtopicTopics.has(tgt.id)) subtopicTopics.set(tgt.id, []);
+        const list = subtopicTopics.get(tgt.id);
+        if (!list.includes(src.id)) list.push(src.id);
+      } else if (tgt.type === "topic_node" && src.type === "subtopic_node") {
+        if (!subtopicTopics.has(src.id)) subtopicTopics.set(src.id, []);
+        const list = subtopicTopics.get(src.id);
+        if (!list.includes(tgt.id)) list.push(tgt.id);
+      } else if (
+        (src.type === "topic_node" || src.type === "subtopic_node") &&
+        tgt.type === "regular_node"
+      ) {
         if (!postParents.has(tgt.id)) postParents.set(tgt.id, []);
         const list = postParents.get(tgt.id);
         if (!list.includes(src.id)) list.push(src.id);
-      } else if (tgt.type === "mega_node" && src.type === "regular_node") {
+      } else if (
+        (tgt.type === "topic_node" || tgt.type === "subtopic_node") &&
+        src.type === "regular_node"
+      ) {
         if (!postParents.has(src.id)) postParents.set(src.id, []);
         const list = postParents.get(src.id);
         if (!list.includes(tgt.id)) list.push(tgt.id);
@@ -959,91 +994,136 @@
 
     for (const n of nodes) {
       n.degree = degree.get(n.id) || 0;
-      if (n.type === "mega_mega_node") {
-        n.displayLabel = n.rawId;
-        n.narrative = n.rawId;
-      } else if (n.type === "mega_node") {
-        n.displayLabel = n.rawId;
-        n.narrative = n.rawId;
-        n.parentIds = megaParents.get(n.id) || [];
+      const stripPrefix = (raw) => {
+        if (raw.startsWith("pillar_")) return raw.slice(7);
+        if (raw.startsWith("topic_")) return raw.slice(6);
+        if (raw.startsWith("subtopic_")) return raw.slice(9);
+        return raw;
+      };
+      if (n.type === "narrative_node") {
+        n.displayLabel = stripPrefix(n.rawId);
+      } else if (n.type === "topic_node") {
+        n.displayLabel = stripPrefix(n.rawId);
+        n.parentIds = topicPillars.get(n.id) || [];
+        n.parentId = n.parentIds[0] ?? null;
+      } else if (n.type === "subtopic_node") {
+        n.displayLabel = stripPrefix(n.rawId);
+        n.parentIds = subtopicTopics.get(n.id) || [];
         n.parentId = n.parentIds[0] ?? null;
       } else {
-        n.displayLabel = n.label || `Post: ${n.rawId}`;
+        n.displayLabel = n.label || `Post: ${n.rawPostId || n.rawId}`;
         n.parentIds = postParents.get(n.id) || [];
         n.parentId = n.parentIds[0] ?? null;
       }
     }
 
-    // Assign a dull family color per mega_mega; children inherit it
-    const parentTopics = nodes
-      .filter((n) => n.type === "mega_mega_node")
-      .sort((a, b) => a.id - b.id);
-    parentTopics.forEach((p, i) => {
+    const pillars = nodes.filter((n) => n.type === "narrative_node").sort((a, b) => a.id - b.id);
+    pillars.forEach((p, i) => {
       const fill = FAMILY_PALETTE[i % FAMILY_PALETTE.length];
       p.color = fill;
       p.strokeColor = darkenHex(fill, 0.28);
       p.linkColor = hexToRgba(fill, 0.3);
     });
 
+    function inheritPillarColor(node) {
+      let cur = node;
+      while (cur) {
+        if (cur.type === "narrative_node") return cur;
+        cur = cur.parentId != null ? byId.get(cur.parentId) : null;
+      }
+      return null;
+    }
+
     for (const n of nodes) {
-      if (n.type === "mega_node") {
-        const parent = n.parentId != null ? byId.get(n.parentId) : null;
-        if (parent?.color) {
-          n.color = parent.color;
-          n.strokeColor = darkenHex(parent.color, 0.2);
-          n.linkColor = hexToRgba(parent.color, 0.22);
+      if (n.type === "topic_node" || n.type === "subtopic_node") {
+        const pillar = inheritPillarColor(n);
+        if (pillar?.color) {
+          n.color = pillar.color;
+          n.strokeColor = darkenHex(pillar.color, n.type === "subtopic_node" ? 0.15 : 0.2);
+          n.linkColor = hexToRgba(pillar.color, 0.22);
         } else {
           n.color = COLORS.orphan;
           n.strokeColor = COLORS.orphanStroke;
           n.linkColor = hexToRgba(COLORS.orphan, 0.22);
         }
       } else if (n.type === "regular_node") {
-        const mega = n.parentId != null ? byId.get(n.parentId) : null;
-        // Posts stay dark gray by default; sentiment/family tint only on selection.
+        const parent = n.parentId != null ? byId.get(n.parentId) : null;
         n.color = COLORS.postFallback;
-        n.familyColor = mega?.color ? lightenHex(mega.color, 0.45) : COLORS.postFallback;
+        n.familyColor = parent?.color ? lightenHex(parent.color, 0.45) : COLORS.postFallback;
       }
     }
 
-    // Parent topics with no narrative children have nothing to cluster / no sentiment posts
-    const megaCountByTopic = new Map();
+    const topicCountByPillar = new Map();
     for (const n of nodes) {
-      if (n.type !== "mega_node" || n.parentId == null) continue;
-      megaCountByTopic.set(n.parentId, (megaCountByTopic.get(n.parentId) || 0) + 1);
+      if (n.type !== "topic_node" || n.parentId == null) continue;
+      topicCountByPillar.set(n.parentId, (topicCountByPillar.get(n.parentId) || 0) + 1);
     }
-    for (const p of parentTopics) {
-      p.hasNarratives = (megaCountByTopic.get(p.id) || 0) > 0;
+    for (const p of pillars) {
+      p.hasTopics = (topicCountByPillar.get(p.id) || 0) > 0;
     }
 
     state.nodes = nodes;
     state.links = links;
     state.byId = byId;
-    state.parentTopics = nodes.filter((n) => n.type === "mega_mega_node");
-    state.narratives = nodes.filter((n) => n.type === "mega_node");
+    state.narratives = nodes.filter((n) => n.type === "narrative_node");
+    state.topics = nodes.filter((n) => n.type === "topic_node");
+    state.subtopics = nodes.filter((n) => n.type === "subtopic_node");
     state.posts = nodes.filter((n) => n.type === "regular_node");
-    state.structuralNodes = [...state.parentTopics, ...state.narratives];
-    state.structuralLinks = links.filter((l) => l.kind === "parent_link");
-    state.megasByParent = new Map();
-    state.postsByMega = new Map();
-    for (const mega of state.narratives) {
-      if (mega.parentId == null) continue;
-      if (!state.megasByParent.has(mega.parentId)) state.megasByParent.set(mega.parentId, []);
-      state.megasByParent.get(mega.parentId).push(mega);
+    state.structuralNodes = [...state.narratives, ...state.topics];
+    state.structuralLinks = links.filter((l) => l.kind === "narrative_link");
+    state.topicsByNarrative = new Map();
+    state.subtopicsByTopic = new Map();
+    state.postsByParent = new Map();
+
+    for (const topic of state.topics) {
+      if (topic.parentId == null) continue;
+      if (!state.topicsByNarrative.has(topic.parentId)) state.topicsByNarrative.set(topic.parentId, []);
+      state.topicsByNarrative.get(topic.parentId).push(topic);
+    }
+    for (const st of state.subtopics) {
+      if (st.parentId == null) continue;
+      if (!state.subtopicsByTopic.has(st.parentId)) state.subtopicsByTopic.set(st.parentId, []);
+      state.subtopicsByTopic.get(st.parentId).push(st);
     }
     for (const post of state.posts) {
       if (post.parentId == null) continue;
-      if (!state.postsByMega.has(post.parentId)) state.postsByMega.set(post.parentId, []);
-      state.postsByMega.get(post.parentId).push(post);
+      if (!state.postsByParent.has(post.parentId)) state.postsByParent.set(post.parentId, []);
+      state.postsByParent.get(post.parentId).push(post);
     }
     applyNodeRadii();
   }
 
   function isExcluded(n) {
-    return (
-      n?.type === "mega_mega_node" &&
-      !n.hasNarratives &&
-      !settings.showEmptyTopics
-    );
+    if (!n) return true;
+    if (n.type === "narrative_node") {
+      return !n.hasTopics && !settings.showEmptyTopics;
+    }
+    if (n.type === "topic_node") {
+      if (!settings.showEmptyPostTopics && getAllPostsForTopic(n).length === 0) {
+        return true;
+      }
+      if (n.parentId != null) {
+        const parent = state.byId.get(n.parentId);
+        if (parent && isExcluded(parent)) return true;
+      }
+      return false;
+    }
+    if (n.type === "subtopic_node") {
+      if (n.parentId != null) {
+        const parent = state.byId.get(n.parentId);
+        if (parent && isExcluded(parent)) return true;
+      }
+      return false;
+    }
+    if (n.type === "regular_node") {
+      if (!isPostStanceVisible(n)) return true;
+      if (n.parentId != null) {
+        const parent = state.byId.get(n.parentId);
+        if (parent && isExcluded(parent)) return true;
+      }
+      return false;
+    }
+    return false;
   }
 
   function activeNodes() {
@@ -1065,19 +1145,18 @@
   function seedPositions() {
     const cx = state.width / 2;
     const cy = state.height / 2;
-    const parents = state.parentTopics.filter((n) => !isExcluded(n));
-    const megas = state.narratives;
+    const pillars = state.narratives.filter((n) => !isExcluded(n));
+    const topics = state.topics;
     const posts = state.posts;
-    const parentById = new Map(parents.map((n) => [n.id, n]));
-    const megaById = new Map(megas.map((n) => [n.id, n]));
+    const pillarById = new Map(pillars.map((n) => [n.id, n]));
+    const parentById = new Map([...pillars, ...topics, ...state.subtopics].map((n) => [n.id, n]));
 
     refreshClusterExtents();
-    // Largest families first so giant post clouds claim space before neighbors pack in
-    parents.sort(
+    pillars.sort(
       (a, b) => (b.clusterExtent || 0) - (a.clusterExtent || 0) || (b.degree || 0) - (a.degree || 0)
     );
     const placed = [];
-    parents.forEach((p, i) => {
+    pillars.forEach((p, i) => {
       const extent = Math.max(p.clusterExtent || CLUSTER_PITCH * 0.4, CLUSTER_PITCH * 0.35);
       if (i === 0) {
         p.x = cx;
@@ -1086,7 +1165,6 @@
         let bestX = cx;
         let bestY = cy;
         let found = false;
-        // Golden-angle spiral until this family's disc clears all already-placed parents
         for (let step = 0; step < 2500 && !found; step += 1) {
           const r = extent * 0.35 + step * 10;
           const angle = step * GOLDEN_ANGLE;
@@ -1115,9 +1193,8 @@
       placed.push({ x: p.x, y: p.y, extent });
     });
 
-    // Park hidden empty topics off-layout (restored if settings turn them on)
     for (const n of state.nodes) {
-      if (n.type === "mega_mega_node" && isExcluded(n)) {
+      if (n.type === "narrative_node" && isExcluded(n)) {
         n.x = cx;
         n.y = cy;
         n.vx = 0;
@@ -1127,51 +1204,54 @@
       }
     }
 
-    // Group megas by parent topic; orphan megas get a shared fallback pack
-    const orphanMegas = [];
-    for (const m of megas) {
-      if (m.parentId != null && parentById.has(m.parentId)) {
-        continue;
-      } else {
-        orphanMegas.push(m);
-      }
+    const orphanTopics = [];
+    for (const t of topics) {
+      if (isExcluded(t)) continue;
+      if (t.parentId != null && pillarById.has(t.parentId)) continue;
+      orphanTopics.push(t);
     }
 
-    for (const [parentId, group] of state.megasByParent) {
-      const parent = parentById.get(parentId);
-      if (!parent) continue;
-      group.sort((a, b) => (b.childPostCount || b.degree || 0) - (a.childPostCount || a.degree || 0));
+    for (const [pillarId, group] of state.topicsByNarrative) {
+      const pillar = pillarById.get(pillarId);
+      if (!pillar) continue;
+      const visibleGroup = group.filter((t) => !isExcluded(t));
+      visibleGroup.sort((a, b) => (b.childPostCount || b.degree || 0) - (a.childPostCount || a.degree || 0));
       let angleCursor = -Math.PI / 2;
-      group.forEach((m, i) => {
-        const angle = group.length === 1 ? -Math.PI / 2 : angleCursor;
-        // Orbit around the parent hub; posts sit outside the parent disc.
-        const dist = parentLinkDistance(parent, m);
-        m.x = parent.x + Math.cos(angle) * dist;
-        m.y = parent.y + Math.sin(angle) * dist;
-        m.vx = 0;
-        m.vy = 0;
-        m.fx = null;
-        m.fy = null;
-        const circumferenceShare = Math.max(0.35, (m.cloudRadius || m.radius) / Math.max(1, parent.clusterExtent));
+      visibleGroup.forEach((t) => {
+        const angle = visibleGroup.length === 1 ? -Math.PI / 2 : angleCursor;
+        const dist = narrativeLinkDistance(pillar, t);
+        t.x = pillar.x + Math.cos(angle) * dist;
+        t.y = pillar.y + Math.sin(angle) * dist;
+        t.vx = 0;
+        t.vy = 0;
+        t.fx = null;
+        t.fy = null;
+        const circumferenceShare = Math.max(0.35, (t.cloudRadius || t.radius) / Math.max(1, pillar.clusterExtent));
         angleCursor += Math.max(GOLDEN_ANGLE * 0.55, circumferenceShare * Math.PI);
       });
     }
 
-    orphanMegas.sort((a, b) => (b.childPostCount || b.degree || 0) - (a.childPostCount || a.degree || 0));
-    orphanMegas.forEach((m, i) => {
-      const extent = m.cloudRadius || 80;
+    orphanTopics.sort((a, b) => (b.childPostCount || b.degree || 0) - (a.childPostCount || a.degree || 0));
+    orphanTopics.forEach((t, i) => {
+      const extent = t.cloudRadius || 80;
       const r = extent + 24 * Math.sqrt(i + 0.5);
       const angle = i * GOLDEN_ANGLE;
-      m.x = cx + Math.cos(angle) * r;
-      m.y = cy + Math.sin(angle) * r;
-      m.vx = 0;
-      m.vy = 0;
-      m.fx = null;
-      m.fy = null;
+      t.x = cx + Math.cos(angle) * r;
+      t.y = cy + Math.sin(angle) * r;
+      t.vx = 0;
+      t.vy = 0;
+      t.fx = null;
+      t.fy = null;
     });
 
+    for (const topic of topics) {
+      if (isExcluded(topic) || !Number.isFinite(topic.x)) continue;
+      const subtopics = (state.subtopicsByTopic.get(topic.id) || []).filter((st) => !isExcluded(st));
+      if (subtopics.length) placeSubtopicsAroundTopic(topic, subtopics, { immediate: true });
+    }
+
     for (const post of posts) {
-      const parent = post.parentId != null ? megaById.get(post.parentId) : null;
+      const parent = post.parentId != null ? parentById.get(post.parentId) : null;
       if (!parent || !Number.isFinite(parent.x)) {
         post.x = cx + (Math.random() - 0.5) * 40;
         post.y = cy + (Math.random() - 0.5) * 40;
@@ -1184,31 +1264,35 @@
       }
     }
 
-    for (const [parentId, group] of state.postsByMega) {
-      const parent = megaById.get(parentId);
+    for (const [parentId, group] of state.postsByParent) {
+      const parent = parentById.get(parentId);
       if (parent) placePostsByStance(parent, group, { immediate: true });
     }
     refreshClusterExtents();
-    syncPostWorldPositions();
+    syncWorldPositions();
   }
 
-  // Pack posts around a mega in angular wedges by stance so same-stance posts sit together.
-  function placePostsByStance(parent, group, { immediate = false } = {}) {
-    const buckets = new Map();
-    for (const post of group) {
-      const key = stanceKey(post);
-      if (!buckets.has(key)) buckets.set(key, []);
-      buckets.get(key).push(post);
-    }
-    const order = [...STANCE_ORDER, UNKNOWN_STANCE].filter((k) => buckets.has(k));
-    const spacing = postR() * 2 + 2.5;
-    const innerRadius = parent.radius + LINK_GAP + postR();
+  function subtopicExtent(st) {
+    const postCount = visiblePostsForParent(st).length;
+    return Math.max(st.radius, estimateFarthestPostDistance(st, postCount));
+  }
+
+  function placeSubtopicsAroundTopic(topic, subtopics, { immediate = false } = {}) {
+    if (!subtopics.length) return;
+    subtopics.sort(
+      (a, b) =>
+        (state.postsByParent.get(b.id)?.length || 0) - (state.postsByParent.get(a.id)?.length || 0)
+    );
+    const spacing =
+      Math.max(...subtopics.map((st) => st.radius)) * 2 +
+      postR() * 2 +
+      6;
+    const innerRadius = topic.radius + PARENT_LINK_GAP + Math.max(...subtopics.map((st) => st.radius));
     const rowPitch = spacing * Math.sqrt(3) / 2;
     let outerRadius = innerRadius + spacing;
     let slots = [];
 
-    // Generate a collision-free hex lattice, growing only until every post has a slot.
-    while (slots.length < group.length) {
+    while (slots.length < subtopics.length) {
       slots = [];
       const rows = Math.ceil(outerRadius / rowPitch);
       const cols = Math.ceil(outerRadius / spacing) + 1;
@@ -1222,13 +1306,83 @@
           slots.push({ x, y, dist });
         }
       }
-      if (slots.length < group.length) outerRadius += spacing;
+      if (slots.length < subtopics.length) outerRadius += spacing;
+    }
+
+    slots.sort((a, b) => a.dist - b.dist);
+    slots = slots.slice(0, subtopics.length);
+    slots.sort((a, b) => {
+      const aa = (Math.atan2(a.y, a.x) + Math.PI / 2 + Math.PI * 2) % (Math.PI * 2);
+      const ba = (Math.atan2(b.y, b.x) + Math.PI / 2 + Math.PI * 2) % (Math.PI * 2);
+      return aa - ba || a.dist - b.dist;
+    });
+
+    let farthest = topic.radius;
+    subtopics.forEach((st, i) => {
+      const slot = slots[i];
+      st.targetLocalX = slot.x;
+      st.targetLocalY = slot.y;
+      if (immediate || !Number.isFinite(st.localX) || !Number.isFinite(st.localY)) {
+        st.localX = st.targetLocalX;
+        st.localY = st.targetLocalY;
+      }
+      st.x = topic.x + st.localX;
+      st.y = topic.y + st.localY;
+      st.vx = 0;
+      st.vy = 0;
+      farthest = Math.max(farthest, slot.dist + subtopicExtent(st));
+    });
+    topic.farthestSubtopicDistance = farthest;
+  }
+
+  // Pack posts around a hub in angular wedges by stance so same-stance posts sit together.
+  function placePostsByStance(parent, group, { immediate = false } = {}) {
+    const visibleGroup = group.filter(isPostStanceVisible);
+    if (!visibleGroup.length) {
+      if (parent.type === "subtopic_node") {
+        parent.farthestPostDistance = parent.radius;
+        parent.topicCollisionRadius = parent.radius;
+        parent.cloudRadius = parent.radius + postR();
+      } else if (parent.type === "topic_node") {
+        parent.farthestPostDistance = parent.radius;
+      }
+      return;
+    }
+    const buckets = new Map();
+    for (const post of visibleGroup) {
+      const key = stanceKey(post);
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push(post);
+    }
+    const order = [...activeStanceOrder(), UNKNOWN_STANCE].filter((k) => buckets.has(k));
+    const spacing = postR() * 2 + 2.5;
+    const innerRadius = parent.radius + LINK_GAP + postR();
+    const rowPitch = spacing * Math.sqrt(3) / 2;
+    let outerRadius = innerRadius + spacing;
+    let slots = [];
+
+    // Generate a collision-free hex lattice, growing only until every post has a slot.
+    while (slots.length < visibleGroup.length) {
+      slots = [];
+      const rows = Math.ceil(outerRadius / rowPitch);
+      const cols = Math.ceil(outerRadius / spacing) + 1;
+      for (let row = -rows; row <= rows; row += 1) {
+        const y = row * rowPitch;
+        const offsetX = Math.abs(row) % 2 ? spacing / 2 : 0;
+        for (let col = -cols; col <= cols; col += 1) {
+          const x = col * spacing + offsetX;
+          const dist = Math.hypot(x, y);
+          if (dist < innerRadius || dist > outerRadius) continue;
+          slots.push({ x, y, dist });
+        }
+      }
+      if (slots.length < visibleGroup.length) outerRadius += spacing;
     }
 
     // Keep the most compact N slots, then order by angle. Assigning stance buckets
     // consecutively creates wedges without sacrificing lattice separation.
     slots.sort((a, b) => a.dist - b.dist);
-    slots = slots.slice(0, group.length);
+    slots = slots.slice(0, visibleGroup.length);
     slots.sort((a, b) => {
       const aa = (Math.atan2(a.y, a.x) + Math.PI / 2 + Math.PI * 2) % (Math.PI * 2);
       const ba = (Math.atan2(b.y, b.x) + Math.PI / 2 + Math.PI * 2) % (Math.PI * 2);
@@ -1257,27 +1411,52 @@
         post.vy = 0;
       }
     }
-    parent.farthestPostDistance =
-      slots.length ? Math.max(...slots.map((slot) => slot.dist)) : parent.radius;
-    parent.topicCollisionRadius = parent.farthestPostDistance;
-    parent.cloudRadius = parent.farthestPostDistance + postR();
+    if (parent.type === "subtopic_node") {
+      parent.farthestPostDistance =
+        slots.length ? Math.max(...slots.map((slot) => slot.dist)) : parent.radius;
+      parent.topicCollisionRadius = parent.farthestPostDistance;
+      parent.cloudRadius = parent.farthestPostDistance + postR();
+    } else if (parent.type === "topic_node") {
+      parent.farthestPostDistance = Math.max(
+        parent.farthestPostDistance || parent.radius,
+        slots.length ? Math.max(...slots.map((slot) => slot.dist)) : parent.radius
+      );
+    }
   }
 
-  function layoutAllPosts({ immediate = false } = {}) {
-    for (const [megaId, posts] of state.postsByMega) {
-      const mega = state.byId.get(megaId);
-      if (mega) placePostsByStance(mega, posts, { immediate });
+  function layoutAllLocalPacks({ immediate = false } = {}) {
+    for (const topic of state.topics) {
+      if (isExcluded(topic) || !Number.isFinite(topic.x)) continue;
+      const subtopics = (state.subtopicsByTopic.get(topic.id) || []).filter((st) => !isExcluded(st));
+      if (subtopics.length) {
+        placeSubtopicsAroundTopic(topic, subtopics, { immediate });
+      }
+    }
+    for (const [parentId, posts] of state.postsByParent) {
+      const parent = state.byId.get(parentId);
+      if (!parent || isExcluded(parent)) continue;
+      placePostsByStance(parent, posts, { immediate });
     }
     refreshClusterExtents();
-    syncPostWorldPositions();
+    syncWorldPositions();
     if (state.postsAnimating) requestRender();
   }
 
-  function syncPostWorldPositions(advance = false) {
+  function syncWorldPositions(advance = false) {
     let animating = false;
-    for (const [megaId, posts] of state.postsByMega) {
-      const mega = state.byId.get(megaId);
-      if (!mega || !Number.isFinite(mega.x) || !Number.isFinite(mega.y)) continue;
+
+    for (const topic of state.topics) {
+      if (!Number.isFinite(topic.x) || !Number.isFinite(topic.y)) continue;
+      const subtopics = state.subtopicsByTopic.get(topic.id) || [];
+      for (const st of subtopics) {
+        st.x = topic.x + (st.localX || 0);
+        st.y = topic.y + (st.localY || 0);
+      }
+    }
+
+    for (const [parentId, posts] of state.postsByParent) {
+      const parent = state.byId.get(parentId);
+      if (!parent || !Number.isFinite(parent.x) || !Number.isFinite(parent.y)) continue;
       for (const post of posts) {
         if (advance) {
           const dx = (post.targetLocalX ?? post.localX ?? 0) - (post.localX ?? 0);
@@ -1291,8 +1470,8 @@
             post.localY = post.targetLocalY ?? post.localY ?? 0;
           }
         }
-        post.x = mega.x + (post.localX || 0);
-        post.y = mega.y + (post.localY || 0);
+        post.x = parent.x + (post.localX || 0);
+        post.y = parent.y + (post.localY || 0);
       }
     }
     if (advance) state.postsAnimating = animating;
@@ -1312,18 +1491,18 @@
       .velocityDecay(INITIAL_SIMULATION_VELOCITY_DECAY)
       // Parent hubs are the sole attractors; bidirectional D3 links are avoided
       // so children cannot pull parents off center.
-      .force("parentAttract", forceParentAttract())
+      .force("pillarAttract", forceNarrativeAttract())
       .force(
         "repelFamilies",
-        forceFamilyRepel(MEGA_MEGA_REPEL, MEGA_MEGA_REPEL_DIST)
+        forceFamilyRepel(NARRATIVE_HUB_REPEL, NARRATIVE_HUB_REPEL_DIST)
       )
       .force(
-        "repelForeignMegas",
+        "repelForeignTopics",
         forceForeignClusterRepel({
-          type: "mega_node",
+          type: "topic_node",
           parentKey: "parentId",
-          strength: FOREIGN_MEGA_REPEL,
-          distanceMax: FOREIGN_MEGA_DIST_MAX,
+          strength: FOREIGN_TOPIC_REPEL,
+          distanceMax: FOREIGN_TOPIC_DIST_MAX,
         })
       )
       .force("familyCollision", forceFamilyCollide())
@@ -1333,7 +1512,7 @@
   }
 
   function onTick() {
-    syncPostWorldPositions();
+    syncWorldPositions();
     requestRender();
   }
 
@@ -1346,7 +1525,7 @@
       n.vy = 0;
     }
     state.settleParentIds = null;
-    syncPostWorldPositions();
+    syncWorldPositions();
     state.settled = true;
     if (!state.dragging && !state.skipFitOnSimEnd) fitGraphToView();
     state.skipFitOnSimEnd = false;
@@ -1357,22 +1536,26 @@
     if (state.renderFrame != null) return;
     state.renderFrame = requestAnimationFrame(() => {
       state.renderFrame = null;
-      const keepAnimating = syncPostWorldPositions(true);
+      const keepAnimating = syncWorldPositions(true);
       render();
       if (keepAnimating) requestRender();
     });
   }
 
-  function getClusterMembers(megaMega) {
-    const megas = state.megasByParent.get(megaMega.id) || [];
+  function getClusterMembers(pillar) {
+    const topics = state.topicsByNarrative.get(pillar.id) || [];
+    const subtopics = [];
     const posts = [];
-    for (const mega of megas) posts.push(...(state.postsByMega.get(mega.id) || []));
-    return { parent: megaMega, megas, posts, all: [megaMega, ...megas, ...posts] };
+    for (const topic of topics) {
+      subtopics.push(...(state.subtopicsByTopic.get(topic.id) || []));
+      posts.push(...getAllPostsForTopic(topic));
+    }
+    return { pillar, topics, subtopics, posts, all: [pillar, ...topics, ...subtopics, ...posts] };
   }
 
-  function translateCluster(megaMega, dx, dy) {
-    const { parent, megas } = getClusterMembers(megaMega);
-    for (const n of [parent, ...megas]) {
+  function translateCluster(pillar, dx, dy) {
+    const { topics } = getClusterMembers(pillar);
+    for (const n of [pillar, ...topics]) {
       n.x += dx;
       n.y += dy;
       if (n.fx != null) n.fx += dx;
@@ -1380,12 +1563,12 @@
       n.vx = 0;
       n.vy = 0;
     }
-    syncPostWorldPositions();
+    syncWorldPositions();
   }
 
-  function pinClusterForDrag(megaMega) {
-    const { parent, megas } = getClusterMembers(megaMega);
-    for (const n of [parent, ...megas]) {
+  function pinClusterForDrag(pillar) {
+    const { topics } = getClusterMembers(pillar);
+    for (const n of [pillar, ...topics]) {
       n.fx = n.x;
       n.fy = n.y;
       n.vx = 0;
@@ -1393,23 +1576,23 @@
     }
   }
 
-  function finalizeClusterDrag(megaMega) {
-    const { parent, megas } = getClusterMembers(megaMega);
-    parent.userPinned = true;
-    parent.fx = parent.x;
-    parent.fy = parent.y;
-    for (const m of megas) {
-      m.fx = m.x;
-      m.fy = m.y;
-      m.vx = 0;
-      m.vy = 0;
+  function finalizeClusterDrag(pillar) {
+    const { topics } = getClusterMembers(pillar);
+    pillar.userPinned = true;
+    pillar.fx = pillar.x;
+    pillar.fy = pillar.y;
+    for (const t of topics) {
+      t.fx = t.x;
+      t.fy = t.y;
+      t.vx = 0;
+      t.vy = 0;
     }
   }
 
   function overlappingParentIds(draggedParent) {
     const ids = new Set([draggedParent.id]);
     const draggedR = draggedParent.clusterExtent || draggedParent.radius;
-    for (const other of state.parentTopics) {
+    for (const other of state.narratives) {
       if (other === draggedParent || isExcluded(other)) continue;
       const otherR = other.clusterExtent || other.radius;
       const dist = Math.hypot(other.x - draggedParent.x, other.y - draggedParent.y);
@@ -1445,18 +1628,17 @@
         parent.fy = null;
       }
       if (isDragged || !parent?.userPinned) {
-        for (const mega of state.megasByParent.get(parentId) || []) {
-          mega.fx = null;
-          mega.fy = null;
+        for (const topic of state.topicsByNarrative.get(parentId) || []) {
+          topic.fx = null;
+          topic.fy = null;
         }
       }
     }
 
-    // No spatial conflict: preserve every settled coordinate and skip physics.
     if (affectedParentIds.size === 1) {
-      for (const mega of state.megasByParent.get(draggedParent.id) || []) {
-        mega.fx = mega.x;
-        mega.fy = mega.y;
+      for (const topic of state.topicsByNarrative.get(draggedParent.id) || []) {
+        topic.fx = topic.x;
+        topic.fy = topic.y;
       }
       state.settleParentIds = null;
       state.settled = true;
@@ -1467,11 +1649,11 @@
 
     const nodes = activeStructuralNodes();
     state.simulation.nodes(nodes);
-    state.simulation.force("parentAttract")?.initialize?.(nodes);
+    state.simulation.force("pillarAttract")?.initialize?.(nodes);
     state.simulation.force("topicCollision")?.initialize?.(nodes);
     state.simulation.force("familyCollision")?.initialize?.(nodes);
     state.simulation.force("repelFamilies")?.initialize?.(nodes);
-    state.simulation.force("repelForeignMegas")?.initialize?.(nodes);
+    state.simulation.force("repelForeignTopics")?.initialize?.(nodes);
     state.simulation.alpha(LOCAL_SETTLE_ALPHA).alphaDecay(LOCAL_SETTLE_ALPHA_DECAY).restart();
   }
 
@@ -1523,38 +1705,81 @@
     return `${text.slice(0, maxChars - 1)}…`;
   }
 
-  function getPostsForMega(mega) {
-    return state.postsByMega.get(mega.id) || [];
+  function getPostsForParent(parent) {
+    return state.postsByParent.get(parent.id) || [];
   }
 
-  function getMegasForTopic(topic) {
-    return state.megasByParent.get(topic.id) || [];
+  function isStanceVisible(stance) {
+    const key = stance && STANCE_COLORS[stance] ? stance : UNKNOWN_STANCE;
+    return settings.stanceVisibility[key] !== false;
   }
 
-  function getPostsForTopic(topic) {
-    const posts = [];
-    for (const mega of getMegasForTopic(topic)) {
-      posts.push(...getPostsForMega(mega));
+  function isPostStanceVisible(post) {
+    return isStanceVisible(stanceKey(post));
+  }
+
+  function visibleStanceKeys() {
+    return [...activeStanceOrder(), UNKNOWN_STANCE].filter(isStanceVisible);
+  }
+
+  function uiVisiblePosts(posts) {
+    return (posts || []).filter(isPostStanceVisible);
+  }
+
+  function ensureValidStanceFilter() {
+    if (state.stanceFilter && !isStanceVisible(state.stanceFilter)) {
+      state.stanceFilter = null;
+    }
+  }
+
+  function visiblePostsForParent(parent) {
+    return getPostsForParent(parent).filter(isPostStanceVisible);
+  }
+
+  function visiblePostsForTopic(topic) {
+    const posts = [...visiblePostsForParent(topic)];
+    for (const st of getSubtopicsForTopic(topic)) {
+      posts.push(...visiblePostsForParent(st));
     }
     return posts;
   }
 
-  function postsMatchingStance(posts, stance) {
-    if (!stance) return posts;
-    return posts.filter((p) => stanceKey(p) === stance);
+  function getTopicsForPillar(pillar) {
+    return state.topicsByNarrative.get(pillar.id) || [];
   }
 
-  function narrativeSortMeta(mega) {
-    const posts = getPostsForMega(mega);
+  function getSubtopicsForTopic(topic) {
+    return state.subtopicsByTopic.get(topic.id) || [];
+  }
+
+  function getAllPostsForTopic(topic) {
+    const posts = [...(state.postsByParent.get(topic.id) || [])];
+    for (const st of getSubtopicsForTopic(topic)) {
+      posts.push(...getPostsForParent(st));
+    }
+    return posts;
+  }
+
+  function getAllPostsForPillar(pillar) {
+    const posts = [];
+    for (const topic of getTopicsForPillar(pillar)) {
+      posts.push(...getAllPostsForTopic(topic));
+    }
+    return posts;
+  }
+
+  function topicSortMeta(topic) {
+    const posts = uiVisiblePosts(getAllPostsForTopic(topic));
+    const sortStances = activeTopicSortStances().filter(isStanceVisible);
     const counts = Object.create(null);
-    for (const s of NARRATIVE_SORT_STANCES) counts[s] = 0;
+    for (const s of sortStances) counts[s] = 0;
     for (const p of posts) {
       const k = stanceKey(p);
       if (k in counts) counts[k] += 1;
     }
     let dominant = null;
     let dominantCount = 0;
-    for (const s of NARRATIVE_SORT_STANCES) {
+    for (const s of sortStances) {
       if (counts[s] > dominantCount) {
         dominant = s;
         dominantCount = counts[s];
@@ -1565,29 +1790,41 @@
       counts,
       dominant,
       dominantCount,
-      orderIdx: dominant != null ? NARRATIVE_SORT_STANCES.indexOf(dominant) : NARRATIVE_SORT_STANCES.length,
+      orderIdx: dominant != null ? sortStances.indexOf(dominant) : sortStances.length,
     };
   }
 
-  function sortMegasByPoliticalStance(megas) {
-    return megas.slice().sort((a, b) => {
-      const ma = narrativeSortMeta(a);
-      const mb = narrativeSortMeta(b);
+  function sortTopicsByPoliticalStance(topics) {
+    return topics.slice().sort((a, b) => {
+      const ma = topicSortMeta(a);
+      const mb = topicSortMeta(b);
       if (ma.orderIdx !== mb.orderIdx) return ma.orderIdx - mb.orderIdx;
       if (mb.dominantCount !== ma.dominantCount) return mb.dominantCount - ma.dominantCount;
       const da = mb.posts.length - ma.posts.length;
       if (da) return da;
-      return String(a.rawId).localeCompare(String(b.rawId), undefined, { numeric: true });
+      return String(a.displayLabel || a.rawId).localeCompare(String(b.displayLabel || b.rawId), undefined, { numeric: true });
     });
   }
 
-  function applyStanceFilterHighlights(anchor, posts, megas) {
+  function postsMatchingStance(posts, stance) {
+    const visible = uiVisiblePosts(posts);
+    if (!stance) return visible;
+    if (!isStanceVisible(stance)) return [];
+    return visible.filter((p) => stanceKey(p) === stance);
+  }
+
+  function applyStanceFilterHighlights(anchor, posts, children) {
+    ensureValidStanceFilter();
     const filteredPosts = postsMatchingStance(posts, state.stanceFilter);
     const ids = new Set([anchor.id, ...filteredPosts.map((p) => p.id)]);
-    if (megas) {
-      for (const mega of megas) {
-        const megaPosts = postsMatchingStance(getPostsForMega(mega), state.stanceFilter);
-        if (!state.stanceFilter || megaPosts.length) ids.add(mega.id);
+    if (children) {
+      for (const child of children) {
+        const childPosts =
+          child.type === "topic_node"
+            ? uiVisiblePosts(getAllPostsForTopic(child))
+            : uiVisiblePosts(getPostsForParent(child));
+        const matching = postsMatchingStance(childPosts, state.stanceFilter);
+        if (!state.stanceFilter || matching.length) ids.add(child.id);
       }
     }
     state.highlightIds = ids;
@@ -1604,7 +1841,7 @@
 
   function applySettingsLive({ visibilityChanged = false } = {}) {
     applyNodeRadii();
-    layoutAllPosts({ immediate: visibilityChanged });
+    layoutAllLocalPacks({ immediate: visibilityChanged });
     if (state.simulation) {
       if (visibilityChanged) {
         seedPositions();
@@ -1614,15 +1851,15 @@
       } else {
         const nodes = activeStructuralNodes();
         for (const n of nodes) {
-          if (n.type === "mega_mega_node" && n.userPinned) continue;
+          if (n.type === "narrative_node" && n.userPinned) continue;
           n.fx = null;
           n.fy = null;
         }
-        state.simulation.force("parentAttract")?.initialize?.(nodes);
+        state.simulation.force("pillarAttract")?.initialize?.(nodes);
         state.simulation.force("topicCollision")?.initialize?.(nodes);
         state.simulation.force("familyCollision")?.initialize?.(nodes);
         state.simulation.force("repelFamilies")?.initialize?.(nodes);
-        state.simulation.force("repelForeignMegas")?.initialize?.(nodes);
+        state.simulation.force("repelForeignTopics")?.initialize?.(nodes);
         state.settled = false;
         state.simulation.alpha(0.22).alphaDecay(0.065).restart();
       }
@@ -1631,9 +1868,17 @@
   }
 
   function syncSettingControls(key) {
-    if (key === "showEmptyTopics") {
-      const box = document.getElementById("set-showEmptyTopics");
-      if (box) box.checked = Boolean(settings.showEmptyTopics);
+    if (
+      key === "showEmptyTopics" ||
+      key === "showEmptyPostTopics" ||
+      key === "reverseStanceSort"
+    ) {
+      const box = document.getElementById(`set-${key}`);
+      if (box) box.checked = Boolean(settings[key]);
+      return;
+    }
+    if (key === "stanceVisibility") {
+      syncStanceVisibilityControls();
       return;
     }
     const range = document.getElementById(`set-${key}`);
@@ -1647,17 +1892,81 @@
     num.value = String(display);
   }
 
+  function syncStanceVisibilityControls() {
+    const root = document.getElementById("stance-visibility");
+    if (!root) return;
+    for (const key of [...activeStanceOrder(), UNKNOWN_STANCE]) {
+      const box = root.querySelector(`input[data-stance="${key}"]`);
+      if (box) box.checked = isStanceVisible(key);
+    }
+  }
+
   function syncAllSettingControls() {
-    for (const key of ["topicSize", "narrativeSize", "postSize", "showEmptyTopics"]) {
+    for (const key of [
+      "topicSize",
+      "narrativeSize",
+      "postSize",
+      "showEmptyTopics",
+      "showEmptyPostTopics",
+      "reverseStanceSort",
+      "stanceVisibility",
+    ]) {
       syncSettingControls(key);
     }
   }
 
+  function reindexPostStances() {
+    const order = activeStanceOrder();
+    for (const n of state.posts) {
+      if (!n.stance) {
+        n.stanceIndex = order.length;
+        continue;
+      }
+      const idx = order.indexOf(n.stance);
+      n.stanceIndex = idx >= 0 ? idx : order.length;
+    }
+  }
+
+  function refreshOpenPanelForStanceSort() {
+    const sel = state.selected;
+    if (state.panelMode === "overview") {
+      openOverviewPanel({ keepFilter: true });
+      return;
+    }
+    if (!sel) return;
+    if (sel.type === "narrative_node") openNarrativePanel(sel, { keepFilter: true });
+    else if (sel.type === "topic_node") openTopicPanel(sel, { keepFilter: true });
+    else if (sel.type === "subtopic_node") openSubtopicPanel(sel, { keepFilter: true });
+  }
+
   function setSettingFromUi(key, rawValue) {
-    if (key === "showEmptyTopics") {
-      settings.showEmptyTopics = Boolean(rawValue);
+    if (key === "showEmptyTopics" || key === "showEmptyPostTopics") {
+      settings[key] = Boolean(rawValue);
       syncSettingControls(key);
       applySettingsLive({ visibilityChanged: true });
+      if (state.panelMode === "overview") openOverviewPanel({ keepFilter: true });
+      return;
+    }
+    if (key === "reverseStanceSort") {
+      settings.reverseStanceSort = Boolean(rawValue);
+      syncSettingControls(key);
+      reindexPostStances();
+      layoutAllLocalPacks({ immediate: true });
+      refreshOpenPanelForStanceSort();
+      requestRender();
+      return;
+    }
+    if (key === "stanceVisibility") {
+      const { stance, visible } = rawValue || {};
+      if (!stance) return;
+      settings.stanceVisibility[stance] = Boolean(visible);
+      ensureValidStanceFilter();
+      syncStanceVisibilityControls();
+      applySettingsLive({ visibilityChanged: false });
+      layoutAllLocalPacks({ immediate: true });
+      if (state.panelMode === "overview") openOverviewPanel({ keepFilter: true });
+      else refreshOpenPanelForStanceSort();
+      requestRender();
       return;
     }
 
@@ -1691,6 +2000,7 @@
   function setupSettings() {
     if (!settingsEl) return;
     setSettingsOpen(false);
+    buildStanceVisibilityControls();
     syncAllSettingControls();
 
     const bindPair = (key) => {
@@ -1717,17 +2027,68 @@
       setSettingFromUi("showEmptyTopics", emptyToggle.checked);
     });
 
+    const emptyPostTopicsToggle = document.getElementById("set-showEmptyPostTopics");
+    emptyPostTopicsToggle?.addEventListener("change", () => {
+      setSettingFromUi("showEmptyPostTopics", emptyPostTopicsToggle.checked);
+    });
+
+    const reverseToggle = document.getElementById("set-reverseStanceSort");
+    reverseToggle?.addEventListener("change", () => {
+      setSettingFromUi("reverseStanceSort", reverseToggle.checked);
+    });
+
     settingsToggle?.addEventListener("click", () => {
       setSettingsOpen(!!settingsEl.hidden);
     });
     settingsClose?.addEventListener("click", () => setSettingsOpen(false));
     settingsReset?.addEventListener("click", () => {
       const visibilityChanged =
-        settings.showEmptyTopics !== SETTINGS_DEFAULTS.showEmptyTopics;
+        settings.showEmptyTopics !== SETTINGS_DEFAULTS.showEmptyTopics ||
+        settings.showEmptyPostTopics !== SETTINGS_DEFAULTS.showEmptyPostTopics ||
+        stanceVisibilityDiffersFromDefault();
+      const stanceSortChanged =
+        settings.reverseStanceSort !== SETTINGS_DEFAULTS.reverseStanceSort;
       Object.assign(settings, SETTINGS_DEFAULTS);
+      settings.stanceVisibility = buildDefaultStanceVisibility();
       syncAllSettingControls();
       applySettingsLive({ visibilityChanged });
+      if (stanceSortChanged) {
+        reindexPostStances();
+        layoutAllLocalPacks({ immediate: true });
+        refreshOpenPanelForStanceSort();
+      }
+      if (state.panelMode === "overview") openOverviewPanel({ keepFilter: true });
     });
+  }
+
+  function buildStanceVisibilityControls() {
+    const root = document.getElementById("stance-visibility");
+    if (!root) return;
+    root.replaceChildren();
+    for (const key of [...STANCE_ORDER_ANTI_FIRST, UNKNOWN_STANCE]) {
+      const label = document.createElement("label");
+      label.className = "setting-check stance-visibility-row";
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.dataset.stance = key;
+      input.checked = isStanceVisible(key);
+      input.addEventListener("change", () => {
+        setSettingFromUi("stanceVisibility", {
+          stance: key,
+          visible: input.checked,
+        });
+      });
+      const swatch = document.createElement("span");
+      swatch.className = "stance-swatch";
+      swatch.style.background = stanceColor(key);
+      const text = document.createElement("span");
+      text.textContent =
+        key === UNKNOWN_STANCE ? "No sentiment" : STANCE_LABELS[key] || key;
+      label.appendChild(input);
+      label.appendChild(swatch);
+      label.appendChild(text);
+      root.appendChild(label);
+    }
   }
 
   function showPanelShell(title) {
@@ -1735,6 +2096,11 @@
     document.body.classList.add("panel-open");
     panelEl.hidden = false;
     panelEl.setAttribute("aria-hidden", "false");
+    overviewToggle?.setAttribute(
+      "aria-expanded",
+      state.panelMode === "overview" ? "true" : "false"
+    );
+    overviewToggle?.classList.toggle("is-active", state.panelMode === "overview");
   }
 
   function appendPanelHero(parent, title, meta) {
@@ -1913,11 +2279,12 @@
       const row = document.createElement("button");
       row.type = "button";
       row.className = "stance-legend-row";
+      if (typeof onFilterChange === "function") row.classList.add("is-clickable");
       if (state.stanceFilter === e.stance) row.classList.add("is-active");
       else if (state.stanceFilter) row.classList.add("is-dimmed");
       row.title = state.stanceFilter === e.stance
         ? "Click to clear filter"
-        : `Filter to ${e.label}`;
+        : `Click to filter: ${e.label}`;
       row.setAttribute("aria-pressed", state.stanceFilter === e.stance ? "true" : "false");
 
       const swatch = document.createElement("span");
@@ -1936,34 +2303,201 @@
       row.appendChild(meta);
 
       row.addEventListener("click", () => {
+        if (typeof onFilterChange !== "function") return;
         state.stanceFilter = state.stanceFilter === e.stance ? null : e.stance;
-        if (typeof onFilterChange === "function") onFilterChange(state.stanceFilter);
+        onFilterChange(state.stanceFilter);
       });
 
       legend.appendChild(row);
     }
     wrap.appendChild(legend);
 
-    if (typeof onFilterChange === "function") {
-      const hint = document.createElement("div");
-      hint.className = "stance-filter-hint";
-      hint.textContent = state.stanceFilter
-        ? "Click the active sentiment again to clear"
-        : "Click a sentiment to filter the graph and list";
-      wrap.appendChild(hint);
+    appendField(parent, "Sentiment distribution", wrap);
+  }
+
+  function debounce(fn, ms) {
+    let timer = null;
+    return (...args) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn(...args), ms);
+    };
+  }
+
+  function cleanNodeMetaLabel(label, displayLabel) {
+    if (!label || label === displayLabel) return null;
+    return String(label)
+      .replace(/^Pillar:\s*/i, "")
+      .replace(/^Topic:\s*/i, "")
+      .replace(/^Narrative:\s*/i, "")
+      .trim() || null;
+  }
+
+  function updateReverseSortButton(btn) {
+    if (!btn) return;
+    const reversed = Boolean(settings.reverseStanceSort);
+    btn.setAttribute("aria-pressed", reversed ? "true" : "false");
+    btn.setAttribute("aria-label", reversed ? "Sentiment order reversed" : "Reverse sentiment order");
+    btn.title = reversed
+      ? "Order reversed — click to restore default"
+      : "Reverse sentiment sort order";
+  }
+
+  function toggleReverseStanceSort({ refreshPanel = true } = {}) {
+    settings.reverseStanceSort = !settings.reverseStanceSort;
+    syncSettingControls("reverseStanceSort");
+    reindexPostStances();
+    layoutAllLocalPacks({ immediate: true });
+    if (refreshPanel) refreshOpenPanelForStanceSort();
+    requestRender();
+  }
+
+  function appendListChrome(field, {
+    labelText,
+    searchPlaceholder,
+    emptyText,
+    getItems,
+    matchItem,
+    renderItem,
+  }) {
+    const header = document.createElement("div");
+    header.className = "panel-list-header";
+
+    const lab = document.createElement("div");
+    lab.className = "panel-label";
+    lab.textContent = labelText;
+    header.appendChild(lab);
+
+    const reverseBtn = document.createElement("button");
+    reverseBtn.type = "button";
+    reverseBtn.className = "panel-sort-toggle";
+    reverseBtn.innerHTML =
+      '<svg class="panel-sort-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">' +
+      '<path d="M4.5 2v9.2L2.7 9.4l-.7.7L5 13.1l3-2.9-.7-.7-1.8 1.7V2h-1zM11 2.9l-3 2.9.7.7 1.8-1.7V14h1V4.8l1.8 1.7.7-.7L11 2.9z"/>' +
+      "</svg>" +
+      '<span class="panel-sort-label">Reverse</span>';
+    updateReverseSortButton(reverseBtn);
+    reverseBtn.addEventListener("click", () => {
+      toggleReverseStanceSort({ refreshPanel: true });
+    });
+    header.appendChild(reverseBtn);
+    field.appendChild(header);
+
+    const search = document.createElement("input");
+    search.type = "search";
+    search.className = "panel-search";
+    search.placeholder = searchPlaceholder;
+    search.value = state.panelListQuery || "";
+    search.setAttribute("aria-label", searchPlaceholder);
+    field.appendChild(search);
+
+    const listWrap = document.createElement("div");
+    listWrap.className = "panel-list-body panel-narratives panel-posts";
+    field.appendChild(listWrap);
+
+    function refill() {
+      const items = getItems();
+      const q = String(state.panelListQuery || "").trim().toLowerCase();
+      const filtered = q ? items.filter((item) => matchItem(item, q)) : items;
+      const base = labelText.replace(/\s*\(\d+(?:\s+of\s+\d+)?(?:\s+filtered)?\)\s*$/, "").trim();
+      lab.textContent = q
+        ? `${base} (${filtered.length} of ${items.length})`
+        : labelText;
+
+      listWrap.replaceChildren();
+      if (!filtered.length) {
+        listWrap.appendChild(makeValue(emptyText || "No matches."));
+        return;
+      }
+      for (const item of filtered) renderItem(listWrap, item);
     }
 
-    appendField(parent, "Sentiment distribution", wrap);
+    const onSearch = debounce(() => {
+      state.panelListQuery = search.value;
+      refill();
+    }, 220);
+    search.addEventListener("input", onSearch);
+
+    refill();
+    return { refill, search, reverseBtn };
+  }
+
+  function appendPostsList(parentEl, posts) {
+    const postsField = document.createElement("div");
+    postsField.className = "panel-field";
+
+    const baseLabel = state.stanceFilter
+      ? `Posts (${posts.length} filtered)`
+      : `Posts (${posts.length})`;
+
+    appendListChrome(postsField, {
+      labelText: baseLabel,
+      searchPlaceholder: "Search posts…",
+      emptyText: state.stanceFilter ? "No posts for this sentiment." : "No linked posts.",
+      getItems: () =>
+        posts.slice().sort((a, b) => {
+          const sa = a.stanceIndex ?? 999;
+          const sb = b.stanceIndex ?? 999;
+          if (sa !== sb) return sa - sb;
+          return String(a.rawPostId || a.rawId).localeCompare(String(b.rawPostId || b.rawId), undefined, {
+            numeric: true,
+          });
+        }),
+      matchItem: (p, q) => {
+        const hay = [
+          p.rawPostId,
+          p.rawId,
+          p.displayLabel,
+          p.stance,
+          p.sentiment?.content_snippet,
+          p.sentiment?.post_narrative,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        return hay.includes(q);
+      },
+      renderItem: (wrap, p) => {
+        const card = document.createElement("button");
+        card.type = "button";
+        card.className = "post-card post-card-btn";
+        card.style.borderLeftColor = stanceColor(stanceKey(p));
+        card.addEventListener("click", () => openPostPanel(p));
+
+        const top = document.createElement("div");
+        top.className = "post-card-top";
+        top.appendChild(makeStanceBadge(p.stance));
+        card.appendChild(top);
+
+        const idEl = document.createElement("div");
+        idEl.className = "post-card-id";
+        idEl.textContent = p.rawPostId || p.rawId;
+        card.appendChild(idEl);
+
+        const title = document.createElement("div");
+        title.className = "post-card-title";
+        const snippet = p.sentiment?.content_snippet;
+        title.textContent = snippet
+          ? truncateLabel(snippet, 110)
+          : (p.displayLabel || p.label || p.rawPostId || p.rawId);
+        card.appendChild(title);
+
+        wrap.appendChild(card);
+      },
+    });
+
+    parentEl.appendChild(postsField);
   }
 
   function openPostPanel(post) {
     state.stanceFilter = null;
+    state.panelListQuery = "";
+    state.panelMode = "detail";
     state.selected = post;
     state.highlightIds = new Set([post.id]);
     showPanelShell("Post");
     panelBody.replaceChildren();
 
-    appendPanelHero(panelBody, post.rawId);
+    appendPanelHero(panelBody, post.rawPostId || post.displayLabel || post.rawId);
 
     const s = post.sentiment;
     if (s) {
@@ -2070,205 +2604,486 @@
       appendField(panelBody, "Sentiment", makeValue("No matching sentiment row for this post id."));
     }
 
-    const narrativesWrap = document.createElement("div");
-    narrativesWrap.className = "panel-narratives";
+    const parentWrap = document.createElement("div");
+    parentWrap.className = "panel-narratives";
     const parentIds = post.parentIds || (post.parentId != null ? [post.parentId] : []);
     if (parentIds.length === 0) {
-      narrativesWrap.appendChild(makeValue("No linked narrative."));
+      parentWrap.appendChild(makeValue("No linked parent."));
     } else {
-      for (const megaId of parentIds) {
-        const mega = state.byId.get(megaId);
-        const topicParents = mega?.parentIds || [];
-        const topicNames = topicParents
-          .map((id) => state.byId.get(id))
-          .filter(Boolean)
-          .map((t) => t.rawId)
-          .join(", ");
-        narrativesWrap.appendChild(
+      for (const parentId of parentIds) {
+        const parent = state.byId.get(parentId);
+        let hint = null;
+        let onClick = null;
+        if (parent?.type === "subtopic_node") {
+          hint = "Open subtopic →";
+          onClick = () => openSubtopicPanel(parent);
+        } else if (parent?.type === "topic_node") {
+          hint = "Open topic →";
+          onClick = () => openTopicPanel(parent);
+        }
+        const pillar = parent?.parentId != null ? state.byId.get(parent.parentId) : null;
+        const pillarLabel =
+          pillar?.type === "narrative_node"
+            ? pillar.displayLabel
+            : parent?.type === "subtopic_node" && parent.parentId != null
+              ? state.byId.get(parent.parentId)?.displayLabel
+              : null;
+        parentWrap.appendChild(
           makeNavCard({
-            title: mega ? mega.narrative || mega.rawId : String(megaId),
-            meta: topicNames ? `Parent topic: ${topicNames}` : mega?.label || null,
-            hint: mega ? "Open narrative →" : null,
-            color: mega?.color || null,
-            onClick: mega ? () => openMegaPanel(mega) : null,
+            title: parent ? parent.displayLabel || parent.rawId : String(parentId),
+            meta: pillarLabel ? `Narrative: ${pillarLabel}` : parent?.label || null,
+            hint,
+            color: parent?.color || null,
+            onClick: parent ? onClick : null,
           })
         );
       }
     }
-    appendField(panelBody, "Narrative", narrativesWrap);
+    appendField(panelBody, "Parent", parentWrap);
     render();
   }
 
-  function openMegaPanel(mega, { keepFilter = false } = {}) {
-    if (!keepFilter) state.stanceFilter = null;
-    const allPosts = getPostsForMega(mega);
-    state.selected = mega;
-    applyStanceFilterHighlights(mega, allPosts, null);
+  function openSubtopicPanel(subtopic, { keepFilter = false } = {}) {
+    if (!keepFilter) {
+      state.stanceFilter = null;
+      state.panelListQuery = "";
+    }
+    ensureValidStanceFilter();
+    state.panelMode = "detail";
+    const allPosts = uiVisiblePosts(getPostsForParent(subtopic));
+    state.selected = subtopic;
+    applyStanceFilterHighlights(subtopic, allPosts, null);
+    showPanelShell("Subtopic");
+    panelBody.replaceChildren();
+
+    appendPanelHero(panelBody, subtopic.displayLabel || subtopic.rawId || "—");
+
+    const topicWrap = document.createElement("div");
+    topicWrap.className = "panel-narratives";
+    const topic = subtopic.parentId != null ? state.byId.get(subtopic.parentId) : null;
+    if (!topic) {
+      topicWrap.appendChild(makeValue("No parent topic."));
+    } else {
+      topicWrap.appendChild(
+        makeNavCard({
+          title: topic.displayLabel || topic.rawId,
+          meta: cleanNodeMetaLabel(topic.label, topic.displayLabel),
+          hint: "Open topic →",
+          color: topic.color || subtopic.color || null,
+          onClick: () => openTopicPanel(topic),
+        })
+      );
+    }
+    appendField(panelBody, "Topic", topicWrap);
+
+    appendStanceDistribution(panelBody, allPosts, {
+      onFilterChange: () => openSubtopicPanel(subtopic, { keepFilter: true }),
+    });
+
+    appendPostsList(panelBody, postsMatchingStance(allPosts, state.stanceFilter));
+    render();
+    if (!keepFilter) focusNodes([subtopic, ...postsMatchingStance(allPosts, state.stanceFilter)]);
+  }
+
+  function openTopicPanel(topic, { keepFilter = false } = {}) {
+    if (!keepFilter) {
+      state.stanceFilter = null;
+      state.panelListQuery = "";
+    }
+    ensureValidStanceFilter();
+    state.panelMode = "detail";
+    const subtopics = getSubtopicsForTopic(topic);
+    const allPosts = uiVisiblePosts(getAllPostsForTopic(topic));
+    state.selected = topic;
+    const filteredPosts = applyStanceFilterHighlights(topic, allPosts, [...subtopics]);
+    showPanelShell("Topic");
+    panelBody.replaceChildren();
+
+    appendPanelHero(
+      panelBody,
+      topic.displayLabel || topic.rawId || "—",
+      cleanNodeMetaLabel(topic.label, topic.displayLabel)
+    );
+
+    const pillarWrap = document.createElement("div");
+    pillarWrap.className = "panel-narratives";
+    const pillar = topic.parentId != null ? state.byId.get(topic.parentId) : null;
+    if (!pillar) {
+      pillarWrap.appendChild(makeValue("No parent narrative."));
+    } else {
+      pillarWrap.appendChild(
+        makeNavCard({
+          title: pillar.displayLabel || pillar.rawId,
+          hint: "Open narrative →",
+          color: pillar.color || topic.color || null,
+          onClick: () => openNarrativePanel(pillar),
+        })
+      );
+    }
+    appendField(panelBody, "Narrative", pillarWrap);
+
+    appendStanceDistribution(panelBody, allPosts, {
+      onFilterChange: () => openTopicPanel(topic, { keepFilter: true }),
+    });
+
+    if (subtopics.length) {
+      const visibleSubtopics = subtopics.filter((st) => {
+        const stPosts = uiVisiblePosts(getPostsForParent(st));
+        if (!stPosts.length) return false;
+        if (!state.stanceFilter) return true;
+        return postsMatchingStance(stPosts, state.stanceFilter).length > 0;
+      });
+      const subsField = document.createElement("div");
+      subsField.className = "panel-field";
+      const subsLab = document.createElement("div");
+      subsLab.className = "panel-label";
+      subsLab.textContent = state.stanceFilter
+        ? `Subtopics (${visibleSubtopics.length} of ${subtopics.length})`
+        : `Subtopics (${subtopics.length})`;
+      subsField.appendChild(subsLab);
+
+      const subsWrap = document.createElement("div");
+      subsWrap.className = "panel-narratives";
+      if (!visibleSubtopics.length) {
+        subsWrap.appendChild(makeValue(state.stanceFilter ? "No subtopics for this sentiment." : "No subtopics."));
+      } else {
+        for (const st of visibleSubtopics) {
+          const stPosts = uiVisiblePosts(getPostsForParent(st));
+          const matching = postsMatchingStance(stPosts, state.stanceFilter);
+          subsWrap.appendChild(
+            makeNavCard({
+              title: st.displayLabel || st.rawId,
+              meta: `${matching.length} post${matching.length === 1 ? "" : "s"}`,
+              hint: "Open subtopic →",
+              color: st.color || topic.color || null,
+              onClick: () => openSubtopicPanel(st),
+            })
+          );
+        }
+      }
+      subsField.appendChild(subsWrap);
+      panelBody.appendChild(subsField);
+    }
+
+    const directPosts = postsMatchingStance(
+      uiVisiblePosts(state.postsByParent.get(topic.id) || []),
+      state.stanceFilter
+    );
+    // Flat graph: all posts hang on the topic. Also show when mixed with subtopics.
+    if (directPosts.length || !subtopics.length) {
+      appendPostsList(panelBody, directPosts.length ? directPosts : filteredPosts);
+    }
+
+    render();
+    if (!keepFilter) focusNodes([topic, ...subtopics, ...filteredPosts]);
+  }
+
+  function openNarrativePanel(pillar, { keepFilter = false } = {}) {
+    if (!keepFilter) {
+      state.stanceFilter = null;
+      state.panelListQuery = "";
+    }
+    ensureValidStanceFilter();
+    state.panelMode = "detail";
+    const topics = getTopicsForPillar(pillar);
+    const allPosts = uiVisiblePosts(getAllPostsForPillar(pillar));
+    state.selected = pillar;
+    const filteredPosts = applyStanceFilterHighlights(pillar, allPosts, topics);
     showPanelShell("Narrative");
     panelBody.replaceChildren();
 
-    appendPanelHero(panelBody, mega.rawId || mega.displayLabel || "—");
-
-    const topicsWrap = document.createElement("div");
-    topicsWrap.className = "panel-narratives";
-    const topicIds = mega.parentIds || (mega.parentId != null ? [mega.parentId] : []);
-    if (!topicIds.length) {
-      topicsWrap.appendChild(makeValue("No parent topic."));
-    } else {
-      for (const tid of topicIds) {
-        const topic = state.byId.get(tid);
-        topicsWrap.appendChild(
-          makeNavCard({
-            title: topic ? topic.rawId : String(tid),
-            meta: topic?.label && topic.label !== topic.rawId ? topic.label : null,
-            hint: topic ? "Open parent topic →" : null,
-            color: topic?.color || mega.color || null,
-            onClick: topic ? () => openMegaMegaPanel(topic) : null,
-          })
-        );
-      }
-    }
-    appendField(panelBody, "Parent topic", topicsWrap);
+    appendPanelHero(panelBody, pillar.displayLabel || pillar.rawId || "—");
 
     appendStanceDistribution(panelBody, allPosts, {
-      onFilterChange: () => openMegaPanel(mega, { keepFilter: true }),
+      onFilterChange: () => openNarrativePanel(pillar, { keepFilter: true }),
     });
 
-    const posts = postsMatchingStance(allPosts, state.stanceFilter);
-    const postsField = document.createElement("div");
-    postsField.className = "panel-field";
-    const postsLab = document.createElement("div");
-    postsLab.className = "panel-label";
-    postsLab.textContent = state.stanceFilter
-      ? `Posts (${posts.length} filtered)`
-      : "Posts";
-    postsField.appendChild(postsLab);
+    const topicsField = document.createElement("div");
+    topicsField.className = "panel-field";
 
-    const postsWrap = document.createElement("div");
-    postsWrap.className = "panel-posts";
-    if (!posts.length) {
-      postsWrap.appendChild(makeValue(state.stanceFilter ? "No posts for this sentiment." : "No linked posts."));
-    } else {
-      const sorted = posts.slice().sort((a, b) => {
-        const sa = a.stanceIndex ?? 999;
-        const sb = b.stanceIndex ?? 999;
-        if (sa !== sb) return sa - sb;
-        return String(a.rawId).localeCompare(String(b.rawId), undefined, { numeric: true });
-      });
-      for (const post of sorted) {
-        const card = document.createElement("button");
-        card.type = "button";
-        card.className = "post-card post-card-btn";
-        const sk = stanceKey(post);
-        card.style.borderLeftColor = stanceColor(sk);
-        card.addEventListener("click", () => openPostPanel(post));
+    const topicsWithVisiblePosts = (t) =>
+      postsMatchingStance(getAllPostsForTopic(t), state.stanceFilter).length > 0;
 
-        const top = document.createElement("div");
-        top.className = "post-card-top";
-        top.appendChild(makeStanceBadge(post.stance));
-        card.appendChild(top);
+    const baseLabel = state.stanceFilter
+      ? `Topics (${topics.filter(topicsWithVisiblePosts).length} of ${topics.length})`
+      : `Topics (${topics.length})`;
 
-        const idEl = document.createElement("div");
-        idEl.className = "post-card-id";
-        idEl.textContent = post.rawId;
-        card.appendChild(idEl);
-
-        const title = document.createElement("div");
-        title.className = "post-card-title";
-        const snippet = post.sentiment?.content_snippet;
-        title.textContent = snippet
-          ? truncateLabel(snippet, 110)
-          : (post.displayLabel || post.label || post.rawId);
-        card.appendChild(title);
-
-        postsWrap.appendChild(card);
-      }
-    }
-    postsField.appendChild(postsWrap);
-    panelBody.appendChild(postsField);
-
-    render();
-    if (!keepFilter) focusNodes([mega, ...posts]);
-  }
-
-  function openMegaMegaPanel(topic, { keepFilter = false } = {}) {
-    if (!keepFilter) state.stanceFilter = null;
-    const megas = getMegasForTopic(topic);
-    const allPosts = getPostsForTopic(topic);
-    state.selected = topic;
-    const filteredPosts = applyStanceFilterHighlights(topic, allPosts, megas);
-    showPanelShell("Parent topic");
-    panelBody.replaceChildren();
-
-    const topicTitle = topic.rawId || topic.displayLabel || "—";
-    const topicMeta =
-      topic.label && topic.label !== topicTitle && !topic.label.endsWith(topicTitle)
-        ? topic.label
-        : null;
-    appendPanelHero(panelBody, topicTitle, topicMeta);
-
-    appendStanceDistribution(panelBody, allPosts, {
-      onFilterChange: () => openMegaMegaPanel(topic, { keepFilter: true }),
-    });
-
-    const visibleMegas = sortMegasByPoliticalStance(megas).filter((mega) => {
-      if (!state.stanceFilter) return true;
-      return postsMatchingStance(getPostsForMega(mega), state.stanceFilter).length > 0;
-    });
-
-    const subsField = document.createElement("div");
-    subsField.className = "panel-field";
-    const subsLab = document.createElement("div");
-    subsLab.className = "panel-label";
-    subsLab.textContent = state.stanceFilter
-      ? `Narratives (${visibleMegas.length} of ${megas.length})`
-      : `Narratives (${megas.length})`;
-    subsField.appendChild(subsLab);
-
-    const sortNote = document.createElement("div");
-    sortNote.className = "stance-filter-hint";
-    sortNote.textContent = "Sorted by dominant sentiment: pro-gov → pro-CJP → anti-CJP → anti-gov";
-    subsField.appendChild(sortNote);
-
-    const subsWrap = document.createElement("div");
-    subsWrap.className = "panel-narratives";
-    if (!visibleMegas.length) {
-      subsWrap.appendChild(makeValue(state.stanceFilter ? "No narratives for this sentiment." : "No linked narratives."));
-    } else {
-      for (const mega of visibleMegas) {
-        const meta = narrativeSortMeta(mega);
+    appendListChrome(topicsField, {
+      labelText: baseLabel,
+      searchPlaceholder: "Search topics…",
+      emptyText: state.stanceFilter ? "No topics for this sentiment." : "No linked topics.",
+      getItems: () =>
+        sortTopicsByPoliticalStance(topics).filter((t) => {
+          if (!state.stanceFilter) return true;
+          return topicsWithVisiblePosts(t);
+        }),
+      matchItem: (t, q) => {
+        const meta = topicSortMeta(t);
+        const hay = [
+          t.displayLabel,
+          t.rawId,
+          t.label,
+          meta.dominant,
+          meta.dominant ? STANCE_LABELS[meta.dominant] : "",
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        return hay.includes(q);
+      },
+      renderItem: (wrap, t) => {
+        const meta = topicSortMeta(t);
         const matching = postsMatchingStance(meta.posts, state.stanceFilter);
         const postCount = matching.length;
         const stanceHint = meta.dominant
           ? `${STANCE_LABELS[meta.dominant] || meta.dominant} · ${meta.dominantCount}`
           : "No political sentiment";
-        subsWrap.appendChild(
+        wrap.appendChild(
           makeNavCard({
-            title: mega.narrative || mega.rawId || mega.displayLabel,
+            title: t.displayLabel || t.rawId,
             meta: `${postCount} post${postCount === 1 ? "" : "s"} · ${stanceHint}`,
-            hint: "Open narrative →",
-            color: meta.dominant ? stanceColor(meta.dominant) : (mega.color || topic.color || null),
-            onClick: () => openMegaPanel(mega),
+            hint: "Open topic →",
+            color: meta.dominant ? stanceColor(meta.dominant) : (t.color || pillar.color || null),
+            onClick: () => openTopicPanel(t),
           })
         );
-      }
-    }
-    subsField.appendChild(subsWrap);
-    panelBody.appendChild(subsField);
+      },
+    });
+
+    panelBody.appendChild(topicsField);
 
     render();
-    if (!keepFilter) focusNodes([topic, ...visibleMegas, ...filteredPosts]);
+    if (!keepFilter) {
+      const visibleTopics = sortTopicsByPoliticalStance(topics).filter((t) => {
+        if (!state.stanceFilter) return true;
+        return topicsWithVisiblePosts(t);
+      });
+      focusNodes([pillar, ...visibleTopics, ...filteredPosts]);
+    }
   }
 
   function closePanel() {
-    if (!state.selected && panelEl.hidden) return;
+    if (!state.selected && state.panelMode == null && panelEl.hidden) return;
     state.selected = null;
     state.highlightIds = null;
     state.stanceFilter = null;
+    state.panelMode = null;
+    state.panelListQuery = "";
     document.body.classList.remove("panel-open");
     panelEl.hidden = true;
     panelEl.setAttribute("aria-hidden", "true");
     panelBody.replaceChildren();
+    overviewToggle?.setAttribute("aria-expanded", "false");
+    overviewToggle?.classList.remove("is-active");
+    render();
+  }
+
+  function applyOverviewStanceHighlights(posts) {
+    ensureValidStanceFilter();
+    if (!state.stanceFilter) {
+      state.highlightIds = null;
+      return postsMatchingStance(posts, null);
+    }
+    const matching = postsMatchingStance(posts, state.stanceFilter);
+    const ids = new Set(matching.map((p) => p.id));
+    for (const post of matching) {
+      let cur = post.parentId != null ? state.byId.get(post.parentId) : null;
+      while (cur) {
+        ids.add(cur.id);
+        cur = cur.parentId != null ? state.byId.get(cur.parentId) : null;
+      }
+    }
+    state.highlightIds = ids;
+    return matching;
+  }
+
+  function openOverviewPanel({ keepFilter = false } = {}) {
+    if (!keepFilter) {
+      state.stanceFilter = null;
+      state.panelListQuery = "";
+    }
+    ensureValidStanceFilter();
+    state.selected = null;
+    state.panelMode = "overview";
+    showPanelShell("Overview");
+    panelBody.replaceChildren();
+
+    const narratives = state.narratives
+      .slice()
+      .sort((a, b) => {
+        const pa = uiVisiblePosts(getAllPostsForPillar(a)).length;
+        const pb = uiVisiblePosts(getAllPostsForPillar(b)).length;
+        if (pb !== pa) return pb - pa;
+        return String(a.displayLabel || a.rawId).localeCompare(
+          String(b.displayLabel || b.rawId),
+          undefined,
+          { numeric: true }
+        );
+      });
+
+    const allPosts = uiVisiblePosts(state.posts);
+    applyOverviewStanceHighlights(allPosts);
+    const topicCount = state.topics.length;
+    const emptyTopicCount = state.topics.filter(
+      (t) => getAllPostsForTopic(t).length === 0
+    ).length;
+    const emptyNarrativeCount = state.narratives.filter((n) => !n.hasTopics).length;
+
+    appendPanelHero(
+      panelBody,
+      "All narratives",
+      `${narratives.length} narratives · ${topicCount} topics · ${allPosts.length} posts`
+    );
+
+    const stats = document.createElement("div");
+    stats.className = "overview-stats";
+    const statItems = [
+      { label: "Narratives", value: String(narratives.length) },
+      { label: "Topics", value: String(topicCount) },
+      { label: "Posts", value: String(allPosts.length) },
+      {
+        label: "Empty topics",
+        value: String(emptyTopicCount),
+      },
+      {
+        label: "Empty narratives",
+        value: String(emptyNarrativeCount),
+      },
+    ];
+    for (const item of statItems) {
+      const cell = document.createElement("div");
+      cell.className = "overview-stat";
+      const val = document.createElement("div");
+      val.className = "overview-stat-value";
+      val.textContent = item.value;
+      const lab = document.createElement("div");
+      lab.className = "overview-stat-label";
+      lab.textContent = item.label;
+      cell.appendChild(val);
+      cell.appendChild(lab);
+      stats.appendChild(cell);
+    }
+    appendField(panelBody, "Corpus", stats);
+
+    appendStanceDistribution(panelBody, allPosts, {
+      onFilterChange: () => openOverviewPanel({ keepFilter: true }),
+    });
+
+    const visibleNarratives = state.stanceFilter
+      ? narratives.filter(
+          (pillar) =>
+            postsMatchingStance(getAllPostsForPillar(pillar), state.stanceFilter).length > 0
+        )
+      : narratives;
+
+    const listField = document.createElement("div");
+    listField.className = "panel-field";
+    const listLab = document.createElement("div");
+    listLab.className = "panel-label";
+    listLab.textContent = state.stanceFilter
+      ? `Narratives (${visibleNarratives.length} of ${narratives.length})`
+      : `Narratives (${narratives.length})`;
+    listField.appendChild(listLab);
+
+    const list = document.createElement("div");
+    list.className = "panel-narratives overview-narrative-list";
+
+    if (!visibleNarratives.length) {
+      list.appendChild(
+        makeValue(
+          state.stanceFilter ? "No narratives for this sentiment." : "No narratives loaded."
+        )
+      );
+    } else {
+      for (const pillar of visibleNarratives) {
+        const topics = getTopicsForPillar(pillar);
+        const posts = uiVisiblePosts(getAllPostsForPillar(pillar));
+        const matchingPosts = postsMatchingStance(posts, state.stanceFilter);
+        const { entries } = computeStanceDistribution(posts);
+        const emptyTopics = topics.filter((t) => getAllPostsForTopic(t).length === 0).length;
+        const card = document.createElement("button");
+        card.type = "button";
+        card.className = "narrative-card narrative-card-btn overview-narrative-card";
+        if (pillar.color) {
+          card.style.borderLeftColor = pillar.color;
+          card.style.borderLeftWidth = "4px";
+        }
+
+        const title = document.createElement("div");
+        title.className = "narrative-card-title";
+        title.textContent = pillar.displayLabel || pillar.rawId || "—";
+        card.appendChild(title);
+
+        const meta = document.createElement("div");
+        meta.className = "narrative-card-meta";
+        const bits = [
+          `${topics.length} topic${topics.length === 1 ? "" : "s"}`,
+          state.stanceFilter
+            ? `${matchingPosts.length} of ${posts.length} post${posts.length === 1 ? "" : "s"}`
+            : `${posts.length} post${posts.length === 1 ? "" : "s"}`,
+        ];
+        if (emptyTopics) {
+          bits.push(`${emptyTopics} empty`);
+        }
+        meta.textContent = bits.join(" · ");
+        card.appendChild(meta);
+
+        if (posts.length) {
+          const bar = document.createElement("div");
+          bar.className = "stance-bar overview-stance-bar";
+          bar.setAttribute("role", "img");
+          bar.setAttribute(
+            "aria-label",
+            entries
+              .filter((e) => e.post_count)
+              .map((e) => `${e.label} ${e.percentage}%`)
+              .join(", ")
+          );
+          for (const e of entries) {
+            if (!e.post_count) continue;
+            const seg = document.createElement("div");
+            seg.className = "stance-bar-seg";
+            seg.style.width = `${e.percentage}%`;
+            seg.style.background = e.color;
+            seg.title = `${e.label}: ${e.post_count} (${e.percentage}%)`;
+            if (state.stanceFilter && state.stanceFilter !== e.stance) {
+              seg.style.opacity = "0.28";
+            }
+            bar.appendChild(seg);
+          }
+          card.appendChild(bar);
+
+          const topStances = entries
+            .filter((e) => e.post_count)
+            .slice(0, 3)
+            .map((e) => `${e.label} ${e.post_count}`);
+          if (topStances.length) {
+            const stanceMeta = document.createElement("div");
+            stanceMeta.className = "narrative-card-meta overview-stance-meta";
+            stanceMeta.textContent = topStances.join(" · ");
+            card.appendChild(stanceMeta);
+          }
+        } else {
+          const empty = document.createElement("div");
+          empty.className = "narrative-card-meta";
+          empty.textContent = pillar.hasTopics
+            ? "Topics present, no posts linked."
+            : "No topics.";
+          card.appendChild(empty);
+        }
+
+        const hint = document.createElement("div");
+        hint.className = "narrative-card-hint";
+        hint.textContent = "Open narrative →";
+        card.appendChild(hint);
+
+        card.addEventListener("click", () => openNarrativePanel(pillar));
+        list.appendChild(card);
+      }
+    }
+
+    listField.appendChild(list);
+    panelBody.appendChild(listField);
     render();
   }
 
@@ -2276,20 +3091,31 @@
     return state.highlightIds != null && state.highlightIds.has(n.id);
   }
 
-  function megaFocusActive() {
+  function hubFocusActive() {
+    if (
+      state.panelMode === "overview" &&
+      state.highlightIds != null &&
+      state.highlightIds.size > 0
+    ) {
+      return true;
+    }
     const t = state.selected?.type;
     return (
-      (t === "mega_node" || t === "mega_mega_node") &&
+      (t === "topic_node" || t === "narrative_node" || t === "subtopic_node") &&
       state.highlightIds != null &&
       state.highlightIds.size > 0
     );
   }
 
-  // Stance-tinted posts when a narrative is focused, a stance filter is on, or a single post is selected.
   function stancePostHighlightActive() {
-    if (state.stanceFilter && megaFocusActive()) return true;
-    if (!megaFocusActive() && state.selected?.type !== "regular_node") return false;
-    return state.selected?.type === "mega_node" || state.selected?.type === "regular_node";
+    if (state.panelMode === "overview" && state.stanceFilter) return true;
+    if (state.stanceFilter && hubFocusActive()) return true;
+    if (!hubFocusActive() && state.selected?.type !== "regular_node") return false;
+    return (
+      state.selected?.type === "topic_node" ||
+      state.selected?.type === "subtopic_node" ||
+      state.selected?.type === "regular_node"
+    );
   }
 
   function drawNodeCircle(n, fill, stroke, strokeWidth) {
@@ -2308,7 +3134,7 @@
 
   function render() {
     const { width, height, transform: t } = state;
-    const focusing = megaFocusActive();
+    const focusing = hubFocusActive();
     const viewPad = 80 / t.k;
     const view = {
       left: -t.x / t.k - viewPad,
@@ -2357,10 +3183,11 @@
     if (showPostLinks) {
       ctx.lineWidth = 1 / t.k;
       for (const l of state.links) {
-        if (l.kind === "parent_link") continue;
+        if (l.kind === "narrative_link") continue;
         const s = linkEndpoint(l.source);
         const tg = linkEndpoint(l.target);
         if (!s || !tg || !Number.isFinite(s.x) || !Number.isFinite(tg.x)) continue;
+        if (isExcluded(s) || isExcluded(tg)) continue;
         if (!visible(s, postR()) && !visible(tg, tg.radius || postR())) continue;
         const related = focusing && isHighlighted(s) && isHighlighted(tg);
         let color = COLORS.edge;
@@ -2391,9 +3218,13 @@
       const showStance =
         stanceHighlight &&
         selected &&
-        (state.selected?.type === "mega_node" ||
+        (state.panelMode === "overview" ||
+          state.selected?.type === "topic_node" ||
+          state.selected?.type === "subtopic_node" ||
           state.selected === n ||
-          (state.stanceFilter && state.selected?.type === "mega_mega_node"));
+          (state.stanceFilter &&
+            (state.selected?.type === "narrative_node" ||
+              state.selected?.type === "topic_node")));
       const r = focusing && selected ? postR() + 1.75 : selected || state.selected === n ? postR() + 1 : postR();
       ctx.beginPath();
       ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
@@ -2462,8 +3293,39 @@
       }
     }
 
-    // Megas — inherit family color from parent topic
-    for (const n of state.narratives) {
+    // Subtopics — hex-packed around topics, inherit pillar family color
+    for (const n of state.subtopics) {
+      if (isExcluded(n) || !Number.isFinite(n.x)) continue;
+      if (!visible(n, n.cloudRadius || n.radius)) continue;
+      const hovered = state.hovered === n;
+      const selected = isHighlighted(n);
+      const dimmed = focusing && !selected;
+      const fill = dimmed
+        ? hexToRgba(n.color || COLORS.orphan, COLORS.dimAlpha)
+        : (n.color || COLORS.orphan);
+      const stroke = selected
+        ? COLORS.selectionRing
+        : hovered
+          ? COLORS.hoverStroke
+          : (n.strokeColor || COLORS.orphanStroke);
+      const strokeW = (selected ? 3 : hovered ? 2.25 : 1.15) / t.k;
+      drawNodeCircle(n, fill, stroke, strokeW);
+      if (selected) {
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.radius + 3.5 / t.k, 0, Math.PI * 2);
+        ctx.strokeStyle = COLORS.selectionRing;
+        ctx.lineWidth = 1.25 / t.k;
+        ctx.setLineDash([3 / t.k, 2.5 / t.k]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      if (!dimmed) {
+        drawNodeLabel(n, n.displayLabel, SUBTOPIC_LABEL_MAX_CHARS, "600", fontSize * 0.92);
+      }
+    }
+
+    // Topics — inherit family color from pillar
+    for (const n of state.topics) {
       if (isExcluded(n) || !Number.isFinite(n.x)) continue;
       if (!visible(n, n.cloudRadius || n.radius)) continue;
       const hovered = state.hovered === n;
@@ -2489,12 +3351,12 @@
         ctx.setLineDash([]);
       }
       if (!dimmed) {
-        drawNodeLabel(n, n.displayLabel, MEGA_LABEL_MAX_CHARS, "600", fontSize);
+        drawNodeLabel(n, n.displayLabel, TOPIC_LABEL_MAX_CHARS, "600", fontSize);
       }
     }
 
-    // Mega-megas (draw on top)
-    for (const n of state.parentTopics) {
+    // Narratives (draw on top)
+    for (const n of state.narratives) {
       if (isExcluded(n) || !Number.isFinite(n.x)) continue;
       if (!visible(n, n.radius)) continue;
       const hovered = state.hovered === n;
@@ -2523,15 +3385,15 @@
         drawNodeLabel(
           n,
           n.displayLabel,
-          MEGA_MEGA_LABEL_MAX_CHARS,
+          NARRATIVE_HUB_LABEL_MAX_CHARS,
           "700",
-          MEGA_MEGA_LABEL_SIZE
+          NARRATIVE_HUB_LABEL_SIZE
         );
       }
     }
 
-    // Anchor indicator on user-pinned parent topics
-    for (const n of state.parentTopics) {
+    // Anchor indicator on user-pinned narratives
+    for (const n of state.narratives) {
       if (!n.userPinned || !Number.isFinite(n.x) || !visible(n, n.radius)) continue;
       if (state.selected === n) continue; // selection ring already drawn
       ctx.beginPath();
@@ -2557,7 +3419,12 @@
 
     if (state.hovered && state.hovered.type === "regular_node" && state.hovered !== state.selected) {
       drawHoverTooltip(state.hovered);
-    } else if (state.hovered && (state.hovered.type === "mega_node" || state.hovered.type === "mega_mega_node")) {
+    } else if (
+      state.hovered &&
+      (state.hovered.type === "topic_node" ||
+        state.hovered.type === "narrative_node" ||
+        state.hovered.type === "subtopic_node")
+    ) {
       if (state.hovered !== state.selected) {
         drawHoverTooltip(state.hovered);
       }
@@ -2620,11 +3487,11 @@
     return hit;
   }
 
-  function findMegaMegaAt(gx, gy) {
+  function findPillarAt(gx, gy) {
     let hit = null;
     let bestDist = Infinity;
     for (const n of activeNodes()) {
-      if (n.type !== "mega_mega_node" || !Number.isFinite(n.x)) continue;
+      if (n.type !== "narrative_node" || !Number.isFinite(n.x)) continue;
       const dist = Math.hypot(n.x - gx, n.y - gy);
       if (dist <= n.radius && dist < bestDist) {
         bestDist = dist;
@@ -2651,7 +3518,7 @@
         if (event.type === "mousedown" || event.type === "touchstart") {
           if (event.button != null && event.button !== 0) return false;
           const [gx, gy] = pointerToGraph(event);
-          if (findMegaMegaAt(gx, gy)) return false;
+          if (findPillarAt(gx, gy)) return false;
           return true;
         }
         return true;
@@ -2672,7 +3539,7 @@
       const hit = findNodeAt(gx, gy);
       if (hit !== state.hovered) {
         state.hovered = hit;
-        if (hit?.type === "mega_mega_node") canvas.style.cursor = "grab";
+        if (hit?.type === "narrative_node") canvas.style.cursor = "grab";
         else canvas.style.cursor = hit ? "pointer" : "grab";
         render();
       }
@@ -2690,18 +3557,18 @@
     canvas.addEventListener("pointerdown", (event) => {
       if (event.button !== 0) return;
       const [gx, gy] = pointerToGraph(event);
-      const megaMega = findMegaMegaAt(gx, gy);
+      const pillar = findPillarAt(gx, gy);
       pointerDown = { x: event.clientX, y: event.clientY, dragged: false };
 
-      if (megaMega) {
+      if (pillar) {
         event.preventDefault();
         event.stopPropagation();
         state.dragging = {
-          node: megaMega,
+          node: pillar,
           lastX: gx,
           lastY: gy,
         };
-        pinClusterForDrag(megaMega);
+        pinClusterForDrag(pillar);
         canvas.setPointerCapture?.(event.pointerId);
         canvas.style.cursor = "grabbing";
         if (state.simulation) state.simulation.alphaTarget(0).stop();
@@ -2735,27 +3602,26 @@
       if (event.button !== 0) return;
 
       if (state.dragging) {
-        const topic = state.dragging.node;
+        const pillar = state.dragging.node;
         const moved = Boolean(pointerDown?.dragged);
         state.dragging = null;
         canvas.style.cursor = "grab";
 
         if (moved) {
-          finalizeClusterDrag(topic);
-          restartSettleAfterAnchor(topic);
+          finalizeClusterDrag(pillar);
+          restartSettleAfterAnchor(pillar);
           requestRender();
         } else {
-          // Click (not drag): drop temporary pins from pointerdown, then open panel
-          const { megas } = getClusterMembers(topic);
+          const { topics } = getClusterMembers(pillar);
           if (state.settled) {
-            topic.fx = topic.x;
-            topic.fy = topic.y;
-            for (const m of megas) {
-              m.fx = m.x;
-              m.fy = m.y;
+            pillar.fx = pillar.x;
+            pillar.fy = pillar.y;
+            for (const t of topics) {
+              t.fx = t.x;
+              t.fy = t.y;
             }
           }
-          openMegaMegaPanel(topic);
+          openNarrativePanel(pillar);
         }
         pointerDown = null;
         return;
@@ -2773,10 +3639,12 @@
 
       if (hit && hit.type === "regular_node") {
         openPostPanel(hit);
-      } else if (hit && hit.type === "mega_node") {
-        openMegaPanel(hit);
-      } else if (hit && hit.type === "mega_mega_node") {
-        openMegaMegaPanel(hit);
+      } else if (hit && hit.type === "subtopic_node") {
+        openSubtopicPanel(hit);
+      } else if (hit && hit.type === "topic_node") {
+        openTopicPanel(hit);
+      } else if (hit && hit.type === "narrative_node") {
+        openNarrativePanel(hit);
       } else {
         closePanel();
       }
@@ -2786,6 +3654,14 @@
     fitViewBtn?.addEventListener("click", () => {
       fitGraphToView();
       render();
+    });
+    overviewToggle?.addEventListener("click", () => {
+      if (state.panelMode === "overview" && !panelEl.hidden) {
+        closePanel();
+        return;
+      }
+      openOverviewPanel();
+      if (state.settled) fitGraphToView();
     });
 
     document.addEventListener("keydown", (event) => {
