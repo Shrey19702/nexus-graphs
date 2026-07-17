@@ -2,7 +2,9 @@
 
 Interactive Canvas + D3 force layout: **narrative** → **topic** → **posts**.
 
-Data: `graph2_pillar_topic.json` (JSON still uses `pillar_node`; the app maps those to narratives) + `all-nexus-data-till-15jul.csv`.
+Data: `graph2_parent_topic_topic.json` (`parent_topic_node` / legacy `pillar_node` map to narratives) + `Nexus_Posts.csv`.
+
+Append new moderation batches with `python3 append_nexus_data.py --csv path/to/new.csv`.
 
 ## Quick start
 

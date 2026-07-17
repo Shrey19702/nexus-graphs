@@ -82,8 +82,8 @@
   }
   const GOLDEN_ANGLE = 2.399963229728653;
   const CLICK_MOVE_PX = 5;
-  const DATA_FILE = "graph2_pillar_topic.json";
-  const SENTIMENT_FILE = "all-nexus-data-till-15jul.csv";
+  const DATA_FILE = "graph2_parent_topic_topic.json";
+  const SENTIMENT_FILE = "Nexus_Posts.csv";
   document.title = "Narratives";
   const PANEL_MAX_W = 400;
 
@@ -908,6 +908,27 @@
     return "other";
   }
 
+  function displayLabelFromNode(n) {
+    const label = String(n.label || "").trim();
+    if (label) {
+      return label
+        .replace(/^Parent Topic:\s*/i, "")
+        .replace(/^Pillar:\s*/i, "")
+        .replace(/^Topic:\s*/i, "")
+        .replace(/^Subtopic:\s*/i, "")
+        .replace(/^Post:\s*/i, "")
+        .replace(/^Narrative:\s*/i, "")
+        .trim();
+    }
+    const raw = String(n.rawId || "");
+    if (raw.startsWith("parent_topic_")) return raw.slice(13);
+    if (raw.startsWith("pillar_")) return raw.slice(7);
+    if (raw.startsWith("topic_")) return raw.slice(6);
+    if (raw.startsWith("subtopic_")) return raw.slice(9);
+    if (raw.startsWith("post_")) return raw.slice(5);
+    return raw;
+  }
+
   function loadGraph(data) {
     const nodes = (data.nodes || []).map((n, i) => ({
       id: i,
@@ -918,7 +939,7 @@
           : n.type === "regular_node"
             ? String(n.id)
             : null,
-      type: n.type === "pillar_node" ? "narrative_node" : n.type,
+      type: n.type === "pillar_node" || n.type === "parent_topic_node" ? "narrative_node" : n.type,
       label: n.label || "",
       radius: POST_R_DEFAULT,
       degree: 0,
@@ -994,24 +1015,14 @@
 
     for (const n of nodes) {
       n.degree = degree.get(n.id) || 0;
-      const stripPrefix = (raw) => {
-        if (raw.startsWith("pillar_")) return raw.slice(7);
-        if (raw.startsWith("topic_")) return raw.slice(6);
-        if (raw.startsWith("subtopic_")) return raw.slice(9);
-        return raw;
-      };
-      if (n.type === "narrative_node") {
-        n.displayLabel = stripPrefix(n.rawId);
-      } else if (n.type === "topic_node") {
-        n.displayLabel = stripPrefix(n.rawId);
+      n.displayLabel = displayLabelFromNode(n);
+      if (n.type === "topic_node") {
         n.parentIds = topicPillars.get(n.id) || [];
         n.parentId = n.parentIds[0] ?? null;
       } else if (n.type === "subtopic_node") {
-        n.displayLabel = stripPrefix(n.rawId);
         n.parentIds = subtopicTopics.get(n.id) || [];
         n.parentId = n.parentIds[0] ?? null;
-      } else {
-        n.displayLabel = n.label || `Post: ${n.rawPostId || n.rawId}`;
+      } else if (n.type === "regular_node") {
         n.parentIds = postParents.get(n.id) || [];
         n.parentId = n.parentIds[0] ?? null;
       }
@@ -2324,12 +2335,17 @@
   }
 
   function cleanNodeMetaLabel(label, displayLabel) {
-    if (!label || label === displayLabel) return null;
-    return String(label)
+    if (!label) return null;
+    const cleaned = String(label)
+      .replace(/^Parent Topic:\s*/i, "")
       .replace(/^Pillar:\s*/i, "")
       .replace(/^Topic:\s*/i, "")
+      .replace(/^Subtopic:\s*/i, "")
+      .replace(/^Post:\s*/i, "")
       .replace(/^Narrative:\s*/i, "")
-      .trim() || null;
+      .trim();
+    if (!cleaned || cleaned === displayLabel) return null;
+    return cleaned;
   }
 
   function updateReverseSortButton(btn) {
@@ -2478,7 +2494,7 @@
         const snippet = p.sentiment?.content_snippet;
         title.textContent = snippet
           ? truncateLabel(snippet, 110)
-          : (p.displayLabel || p.label || p.rawPostId || p.rawId);
+          : (p.displayLabel || p.rawPostId || p.rawId);
         card.appendChild(title);
 
         wrap.appendChild(card);
@@ -2631,7 +2647,7 @@
         parentWrap.appendChild(
           makeNavCard({
             title: parent ? parent.displayLabel || parent.rawId : String(parentId),
-            meta: pillarLabel ? `Narrative: ${pillarLabel}` : parent?.label || null,
+            meta: pillarLabel ? `Narrative: ${pillarLabel}` : cleanNodeMetaLabel(parent?.label, parent?.displayLabel),
             hint,
             color: parent?.color || null,
             onClick: parent ? onClick : null,
