@@ -19,21 +19,21 @@
     dimAlpha: 0.22,
   };
 
-  // Dull, distinct family colors — one per narrative_node
+  // Clear, distinct family colors — one per narrative_node (parent topic)
   const FAMILY_PALETTE = [
-    "#7d8b99",
-    "#8a7f72",
-    "#6f8579",
-    "#7c748c",
-    "#8a7a6c",
-    "#6e8490",
-    "#85786e",
-    "#748a80",
-    "#8a7482",
-    "#6f7f8a",
-    "#87856f",
-    "#7a6e82",
-    "#708890",
+    "#3B82F6", // blue
+    "#F59E0B", // amber
+    "#10B981", // emerald
+    "#8B5CF6", // violet
+    "#EF4444", // red
+    "#06B6D4", // cyan
+    "#F97316", // orange
+    "#EC4899", // pink
+    "#84CC16", // lime
+    "#6366F1", // indigo
+    "#14B8A6", // teal
+    "#A855F7", // purple
+    "#EAB308", // yellow
   ];
 
   const POST_R_DEFAULT = 3;
@@ -59,13 +59,20 @@
   const LOCAL_SETTLE_ALPHA_DECAY = 0.035;
   const POST_LERP = 0.24;
   const POST_LERP_EPSILON = 0.04;
-  // Labels only after deep zoom so text doesn't blanket the graph (~4.5× fit zoom)
+  // Topic/subtopic labels only after deep zoom (~4.5× fit zoom)
   const LABEL_ZOOM_MULT = 4.5;
   const TOPIC_LABEL_MAX_CHARS = 22;
   const NARRATIVE_HUB_LABEL_MAX_CHARS = 26;
   const SUBTOPIC_LABEL_MAX_CHARS = 20;
-  // World-space font size for narrative labels (scales on screen with zoom)
-  const NARRATIVE_HUB_LABEL_SIZE = 10;
+  // Screen-constant hub label size (world px = this / zoom); always drawn when hub is on-screen
+  const NARRATIVE_HUB_LABEL_SCREEN_PX = 14;
+  // World-space dotted grid: dots grow on screen when zoomed in
+  const GRID_SPACING = 48;
+  const GRID_DOT_RADIUS = 1.1;
+  const GRID_DOT_ALPHA = 0.16;
+  // Soft family territory discs behind each parent cluster
+  const FAMILY_AURA_ALPHA = 0.11;
+  const FAMILY_AURA_STROKE_ALPHA = 0.22;
   // Political axis used to order topics in the narrative panel (anti → pro default)
   const TOPIC_SORT_STANCES_ANTI_FIRST = [
     "anti_government",
@@ -83,7 +90,7 @@
   const GOLDEN_ANGLE = 2.399963229728653;
   const CLICK_MOVE_PX = 5;
   const DATA_FILE = "graph2_parent_topic_topic.json";
-  const SENTIMENT_FILE = "Nexus_Posts.csv";
+  const SENTIMENT_FILE = "CJP_Master_Nexus_Input_20_July.csv";
   document.title = "Narratives";
   const PANEL_MAX_W = 400;
 
@@ -3172,6 +3179,52 @@
     ctx.translate(t.x, t.y);
     ctx.scale(t.k, t.k);
 
+    // Dotted world-space grid — denser/smaller on screen when zoomed out, larger when zoomed in
+    {
+      let spacing = GRID_SPACING;
+      const viewW = view.right - view.left;
+      const viewH = view.bottom - view.top;
+      const maxDots = 6000;
+      const est = (viewW / spacing) * (viewH / spacing);
+      if (est > maxDots) {
+        spacing = Math.ceil(Math.sqrt((viewW * viewH) / maxDots) / GRID_SPACING) * GRID_SPACING;
+      }
+      const x0 = Math.floor(view.left / spacing) * spacing;
+      const x1 = Math.ceil(view.right / spacing) * spacing;
+      const y0 = Math.floor(view.top / spacing) * spacing;
+      const y1 = Math.ceil(view.bottom / spacing) * spacing;
+      const dotR = GRID_DOT_RADIUS;
+      ctx.fillStyle = hexToRgba("#64748B", GRID_DOT_ALPHA);
+      ctx.beginPath();
+      for (let x = x0; x <= x1; x += spacing) {
+        for (let y = y0; y <= y1; y += spacing) {
+          ctx.moveTo(x + dotR, y);
+          ctx.arc(x, y, dotR, 0, Math.PI * 2);
+        }
+      }
+      ctx.fill();
+    }
+
+    // Soft family territory discs (bg highlight for each parent topic cluster)
+    for (const n of state.narratives) {
+      if (isExcluded(n) || !Number.isFinite(n.x)) continue;
+      const auraR = n.clusterExtent || n.radius * 8;
+      if (!visible(n, auraR)) continue;
+      const dimmed = focusing && !isHighlighted(n) && state.selected !== n;
+      const base = n.color || COLORS.orphan;
+      const alpha = dimmed ? FAMILY_AURA_ALPHA * COLORS.dimAlpha : FAMILY_AURA_ALPHA;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, auraR, 0, Math.PI * 2);
+      ctx.fillStyle = hexToRgba(base, alpha);
+      ctx.fill();
+      ctx.strokeStyle = hexToRgba(
+        base,
+        dimmed ? FAMILY_AURA_STROKE_ALPHA * COLORS.dimAlpha : FAMILY_AURA_STROKE_ALPHA
+      );
+      ctx.lineWidth = 1.25 / t.k;
+      ctx.stroke();
+    }
+
     // Links — structural edge color; reinforce related links while focusing
     ctx.lineWidth = 1.25 / t.k;
     for (const l of state.structuralLinks) {
@@ -3265,20 +3318,22 @@
 
     const showLabels = t.k >= (state.baselineZoom || 1) * LABEL_ZOOM_MULT;
     const fontSize = 11 / t.k;
+    const hubLabelSize = NARRATIVE_HUB_LABEL_SCREEN_PX / t.k;
     const placedLabels = [];
+    const placedHubLabels = [];
 
-    function labelFits(sx, sy, w, h) {
+    function labelFits(sx, sy, w, h, bucket = placedLabels) {
       const pad = 4;
       const left = sx - w / 2 - pad;
       const right = sx + w / 2 + pad;
       const top = sy - h / 2 - pad;
       const bottom = sy + h / 2 + pad;
-      for (const box of placedLabels) {
+      for (const box of bucket) {
         if (left < box.right && right > box.left && top < box.bottom && bottom > box.top) {
           return false;
         }
       }
-      placedLabels.push({ left, right, top, bottom });
+      bucket.push({ left, right, top, bottom });
       return true;
     }
 
@@ -3304,6 +3359,55 @@
         ctx.fillStyle = COLORS.text;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
+        ctx.fillText(label, wx, wy);
+        return;
+      }
+    }
+
+    // Always-on parent hub labels — constant screen size, halo for contrast
+    function drawNarrativeHubLabel(n, text) {
+      if (!Number.isFinite(n.x)) return;
+      const label = truncateLabel(text, NARRATIVE_HUB_LABEL_MAX_CHARS);
+      const size = hubLabelSize;
+      ctx.font = `700 ${size}px "Segoe UI", system-ui, sans-serif`;
+      const metrics = ctx.measureText(label);
+      const w = metrics.width;
+      const h = size;
+      const offsets = [
+        [0, -(n.radius + h * 0.95)],
+        [0, n.radius + h * 0.95],
+        [0, 0],
+      ];
+      for (const [ox, oy] of offsets) {
+        const wx = n.x + ox;
+        const wy = n.y + oy;
+        const sx = wx * t.k + t.x;
+        const sy = wy * t.k + t.y;
+        // Hub labels only collide with other hubs so they stay readable at any zoom
+        if (!labelFits(sx, sy, w * t.k, h * t.k, placedHubLabels)) continue;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        // Soft pill behind text for readability over dense posts
+        const padX = 5 / t.k;
+        const padY = 3 / t.k;
+        const rx = 4 / t.k;
+        ctx.beginPath();
+        const left = wx - w / 2 - padX;
+        const top = wy - h / 2 - padY;
+        const pw = w + padX * 2;
+        const ph = h + padY * 2;
+        ctx.moveTo(left + rx, top);
+        ctx.arcTo(left + pw, top, left + pw, top + ph, rx);
+        ctx.arcTo(left + pw, top + ph, left, top + ph, rx);
+        ctx.arcTo(left, top + ph, left, top, rx);
+        ctx.arcTo(left, top, left + pw, top, rx);
+        ctx.closePath();
+        ctx.fillStyle = "rgba(255, 255, 255, 0.88)";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+        ctx.lineWidth = 0.75 / t.k;
+        ctx.stroke();
+        ctx.fillStyle = COLORS.text;
         ctx.fillText(label, wx, wy);
         return;
       }
@@ -3397,14 +3501,15 @@
         ctx.stroke();
         ctx.setLineDash([]);
       }
+    }
+
+    // Parent hub titles last so they stay readable over topics at every zoom
+    for (const n of state.narratives) {
+      if (isExcluded(n) || !Number.isFinite(n.x)) continue;
+      if (!visible(n, n.radius)) continue;
+      const dimmed = focusing && !isHighlighted(n) && state.selected !== n;
       if (!dimmed) {
-        drawNodeLabel(
-          n,
-          n.displayLabel,
-          NARRATIVE_HUB_LABEL_MAX_CHARS,
-          "700",
-          NARRATIVE_HUB_LABEL_SIZE
-        );
+        drawNarrativeHubLabel(n, n.displayLabel);
       }
     }
 
