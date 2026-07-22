@@ -89,8 +89,8 @@
   }
   const GOLDEN_ANGLE = 2.399963229728653;
   const CLICK_MOVE_PX = 5;
-  const DATA_FILE = "graph2_parent_topic_topic.json";
-  const SENTIMENT_FILE = "CJP_Master_Nexus_Input_20_July.csv";
+  const DATA_FILE = "graph2_parent_topic_topic_22_07.json";
+  const SENTIMENT_FILE = "CJP_Master_Nexus_Input_22_July.csv";
   document.title = "Narratives";
   const PANEL_MAX_W = 400;
 
