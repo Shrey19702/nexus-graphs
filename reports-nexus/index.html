@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nexus Report</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="toolbar no-print" aria-label="Report controls">
+    <a class="toolbar-home" href="../">Nexus</a>
+    <div class="toolbar-actions">
+      <span id="status" class="toolbar-status">Loading…</span>
+      <button type="button" id="export-pdf" class="btn" disabled>Export PDF</button>
+    </div>
+  </header>
+
+  <main id="report" class="report" aria-busy="true">
+    <p class="loading-note no-print">Building report from narrative data…</p>
+  </main>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

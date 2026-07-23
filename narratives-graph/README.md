@@ -2,9 +2,15 @@
 
 Interactive Canvas + D3 force layout: **narrative** → **topic** → **posts**.
 
-Data: `graph2_parent_topic_topic.json` (`parent_topic_node` / legacy `pillar_node` map to narratives) + `Nexus_Posts.csv`.
+Data: `graph2_parent_topic_topic_22_07.json` (`parent_topic_node` / legacy `pillar_node` map to narratives) + `CJP_Master_Nexus_Input_22_July.csv`.
 
 Append new moderation batches with `python3 append_nexus_data.py --csv path/to/new.csv`.
+
+## Layout
+
+- `js/main.js` — ES module entry
+- `js/app.js` — narratives domain logic
+- `../shared/js/` — theme, CSV, canvas, forces, panel primitives shared with platform-profiles
 
 ## Quick start
 

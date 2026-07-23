@@ -7,6 +7,7 @@ Interactive Canvas + D3 force graphs.
 | Hub | `/` |
 | Profiles | `/platform-profiles/` |
 | Narratives | `/narratives-graph/` |
+| Report | `/reports-nexus/` |
 
 ## Local
 

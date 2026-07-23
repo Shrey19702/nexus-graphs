@@ -4,6 +4,12 @@ Interactive Canvas + D3 force layout for **platforms** as hubs and **profiles** 
 
 Based on the topic-graph visualizer, adapted for a two-level platform model (no `mega_mega_node`).
 
+## Layout
+
+- `js/main.js` — ES module entry
+- `js/app.js` — profiles domain logic
+- `../shared/js/` — theme, CSV, canvas, forces, panel primitives shared with narratives-graph
+
 ## Quick start
 
 Serve the **repo root** (or this folder) over HTTP:
