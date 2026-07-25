@@ -24,7 +24,25 @@ export const STANCE_COLORS = {
   pro_government: "#1B7F5C",
 };
 
-export const PARENT_IMAGE = {
+export const PLATFORM_ORDER = ["youtube", "x", "facebook", "instagram", "reddit"];
+
+export const PLATFORM_LABELS = {
+  youtube: "YouTube",
+  x: "X",
+  facebook: "Facebook",
+  instagram: "Instagram",
+  reddit: "Reddit",
+};
+
+export const PLATFORM_COLORS = {
+  youtube: "#FF0000",
+  x: "#111827",
+  facebook: "#1877F2",
+  instagram: "#E4405F",
+  reddit: "#FF4500",
+};
+
+export const THEME_IMAGE = {
   "Protests and Activism": "protests_n_activism.png",
   "Political Figures and Parties": "political_figures_n_parties.png",
   "Sonam Wangchuk's Hunger Strike": "sonam_wangchuk_hunger_strike.png",
@@ -37,6 +55,16 @@ export const PARENT_IMAGE = {
 
 export const OVERVIEW_IMAGE = "narrative-graph.png";
 
-export const CSV_URL = "../narratives-graph/CJP_Master_Nexus_Input_22_July.csv";
-export const GRAPH_URL = "../narratives-graph/graph2_parent_topic_topic_22_07.json";
 export const IMAGES_BASE = "../images/";
+
+/** Timeline charts only — older posts still count in totals/sentiment.
+ *  Overridden at runtime by shared/nexus-data.yml when present. */
+export const TIMELINE_START_DAY = "2026-07-01";
+
+export function timelineEndDay() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}

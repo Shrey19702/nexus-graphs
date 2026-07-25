@@ -17,6 +17,13 @@
       </nav>
     </div>
     <div id="chrome-right">
+      <div class="chrome-date-filter" role="group" aria-label="Post date range">
+        <label class="chrome-date-label" for="date-from">From</label>
+        <input type="date" id="date-from" class="chrome-date-input" />
+        <label class="chrome-date-label" for="date-to">To</label>
+        <input type="date" id="date-to" class="chrome-date-input" />
+        <button type="button" id="date-clear" class="chrome-btn chrome-date-clear" disabled>Clear</button>
+      </div>
       <button type="button" id="overview-toggle" class="chrome-btn" aria-expanded="false" aria-controls="panel">
         Overview
       </button>

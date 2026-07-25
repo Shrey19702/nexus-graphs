@@ -119,12 +119,12 @@ img {
 }
 
 .cover-header,
-.parent-header {
+.theme-header {
   margin-bottom: 20px;
 }
 
 .cover-title,
-.parent-title {
+.theme-title {
   margin: 0;
   font-size: 34px;
   font-weight: 700;
@@ -133,14 +133,14 @@ img {
   color: var(--text);
 }
 
-.parent-meta {
+.theme-meta {
   margin: 8px 0 0;
   color: var(--muted);
   font-size: 13px;
 }
 
 .cover-figure,
-.parent-figure {
+.theme-figure {
   margin: 0 0 24px;
   padding: 12px;
   background: var(--soft);
@@ -149,7 +149,7 @@ img {
 }
 
 .cover-image,
-.parent-image {
+.theme-image {
   width: 100%;
   border-radius: 6px;
 }
@@ -183,7 +183,7 @@ img {
 }
 
 .block {
-  margin-bottom: 28px;
+  margin-bottom: 46px;
 }
 
 .block-title {
@@ -193,8 +193,12 @@ img {
   letter-spacing: -0.01em;
 }
 
-.parent-list,
-.topic-list {
+.block > .muted {
+  margin: -4px 0 12px;
+  font-size: 12px;
+}
+
+.theme-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -203,8 +207,7 @@ img {
   overflow: hidden;
 }
 
-.parent-list li,
-.topic-list li {
+.theme-list li {
   display: grid;
   grid-template-columns: 28px 1fr auto;
   gap: 10px;
@@ -213,31 +216,54 @@ img {
   border-top: 1px solid var(--line);
 }
 
-.topic-list li {
-  grid-template-columns: 1fr auto;
-}
-
-.parent-list li:first-child,
-.topic-list li:first-child {
+.theme-list li:first-child {
   border-top: 0;
 }
 
-.parent-list-index {
+.theme-list-index {
   color: var(--blue-600);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
-.parent-list-name,
-.topic-name {
+.theme-list-name {
   font-weight: 500;
 }
 
-.parent-list-count,
+.theme-list-count,
 .topic-count {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
-  font-size: 12px;
+  font-size: 11px;
+}
+
+.topic-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.topic-list-columns {
+  column-count: 3;
+  column-gap: 18px;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.topic-list-columns li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+  break-inside: avoid;
+  page-break-inside: avoid;
+  padding: 3px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.topic-name {
+  font-weight: 450;
+  min-width: 0;
 }
 
 .legend {
@@ -302,48 +328,6 @@ img {
   color: var(--muted);
 }
 
-.timelines > .muted {
-  margin: -4px 0 12px;
-  font-size: 12px;
-}
-
-.timeline-list {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.timeline-card {
-  padding: 14px 14px 10px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: #fff;
-  break-inside: avoid;
-  page-break-inside: avoid;
-}
-
-.timeline-card-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: baseline;
-  margin-bottom: 8px;
-}
-
-.timeline-card-title {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
-.timeline-card-meta {
-  margin: 0;
-  color: var(--muted);
-  font-size: 11px;
-  white-space: nowrap;
-}
-
 .timeline-chart-wrap {
   width: 100%;
   overflow: hidden;
@@ -375,12 +359,61 @@ img {
   font-size: 8px;
 }
 
+.donut-wrap {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 28px 36px;
+}
+
+.donut-chart {
+  flex: 0 0 auto;
+}
+
+.donut-center-value {
+  fill: var(--text);
+  font-size: 18px;
+  font-weight: 700;
+  font-family: var(--font);
+}
+
+.donut-center-label {
+  fill: var(--muted);
+  font-size: 11px;
+  font-family: var(--font);
+}
+
+.donut-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 200px;
+  flex: 1 1 auto;
+}
+
+.donut-legend-row {
+  display: grid;
+  grid-template-columns: 12px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+}
+
+.donut-legend-name {
+  font-weight: 500;
+}
+
+.donut-legend-value {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------- Print / PDF ---------- */
 
 @media print {
   @page {
     size: A4;
-    margin: 14mm 12mm;
+    margin: 12mm 11mm;
   }
 
   body {
@@ -410,51 +443,125 @@ img {
     border: 0 !important;
   }
 
+  .page + .page {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  /* One break between cover and themes — not both after + before (blank page). */
   .page-cover {
     break-after: page;
     page-break-after: always;
   }
 
-  .page-parent {
+  .page-theme {
     break-before: page;
     page-break-before: always;
   }
 
-  .page-parent + .page-parent {
+  .page-cover + .page-theme {
+    break-before: auto;
+    page-break-before: auto;
+  }
+
+  .page-theme + .page-theme {
     margin-top: 0;
     padding-top: 0;
   }
 
+  .cover-header,
+  .theme-header {
+    margin-bottom: 12px;
+  }
+
   .cover-figure,
-  .parent-figure,
-  .timeline-card,
-  .parent-list,
-  .topic-list,
+  .theme-figure {
+    margin-bottom: 14px;
+    padding: 8px;
+  }
+
+  .cover-stats {
+    margin-bottom: 16px;
+  }
+
+  .block {
+    margin-bottom: 36px;
+  }
+
+  .cover-figure,
+  .theme-figure,
+  .theme-list,
   .stat {
     border-color: #d1d5db;
     box-shadow: none;
   }
 
   .cover-image,
-  .parent-image {
-    max-height: 420px;
+  .theme-image {
+    max-height: 280px;
     object-fit: contain;
     margin: 0 auto;
   }
 
-  .parent-image {
-    max-height: 280px;
+  .theme-image {
+    max-height: 200px;
   }
 
-  .timeline-card {
-    break-inside: avoid;
-    page-break-inside: avoid;
+  .topic-list-columns {
+    column-count: 3;
+    font-size: 9pt;
   }
 
   .block-title,
   .cover-title,
-  .parent-title {
+  .theme-title {
     color: #111;
+  }
+
+  /* Prefer title not stranded alone; allow blocks to share a page. */
+  .block-title {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .block > .muted,
+  .block > .legend,
+  .block > .stance-bars {
+    break-before: avoid;
+    page-break-before: avoid;
+  }
+
+  /* Small sentiment sections can stay together without hogging a page. */
+  .block:has(> .stance-bars) {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Keep donut + legend side-by-side (print width often hits the mobile query). */
+  .donut-wrap {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 20px 28px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .donut-chart {
+    width: 180px;
+    height: 180px;
+  }
+
+  .donut-legend {
+    flex: 1 1 auto;
+    min-width: 0;
+    gap: 6px;
+  }
+
+  .donut-legend-row {
+    font-size: 11px;
   }
 
   .kicker {
@@ -465,14 +572,13 @@ img {
     display: none;
   }
 
-  /* Keep chart colors in PDF */
   * {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
 }
 
-@media (max-width: 720px) {
+@media screen and (max-width: 720px) {
   .stance-row {
     grid-template-columns: 1fr;
     gap: 4px;
@@ -483,7 +589,17 @@ img {
   }
 
   .cover-title,
-  .parent-title {
+  .theme-title {
     font-size: 28px;
+  }
+
+  .topic-list-columns {
+    column-count: 2;
+  }
+
+  .donut-wrap {
+    flex-direction: column;
+    flex-wrap: wrap;
+    align-items: flex-start;
   }
 }

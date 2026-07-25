@@ -1,34 +1,51 @@
 /** Nexus report: load CSV + graph, aggregate, render HTML for PDF export. */
 
 import { parseCsv } from "../../shared/js/csv.js";
+import { loadNexusDataConfig } from "../../shared/js/data-config.js";
 import {
   STANCE_ORDER,
   STANCE_LABELS,
   STANCE_COLORS,
-  PARENT_IMAGE,
+  THEME_IMAGE,
   OVERVIEW_IMAGE,
-  CSV_URL,
-  GRAPH_URL,
   IMAGES_BASE,
+  TIMELINE_START_DAY,
+  timelineEndDay,
 } from "./constants.js";
-import { enumerateDays, renderStackedTimeline, stanceLegendHtml } from "./charts.js";
+import {
+  daysForSeriesBucket,
+  renderStackedTimeline,
+  renderPlatformDonut,
+  stanceLegendHtml,
+  formatDayLabel,
+} from "./charts.js";
 
 export async function init() {
   const statusEl = document.getElementById("status");
   const reportEl = document.getElementById("report");
   const exportBtn = document.getElementById("export-pdf");
 
+  setStatus(statusEl, "Loading config…");
+  const dataConfig = await loadNexusDataConfig();
+  const csvUrl = dataConfig.csvUrl;
+  const graphUrl = dataConfig.graphUrl;
+  const imagesBase = dataConfig.imagesBaseUrl || IMAGES_BASE;
+  const overviewImage = dataConfig.overview_image || OVERVIEW_IMAGE;
+  const timelineStart = dataConfig.timeline_start || TIMELINE_START_DAY;
+
   setStatus(statusEl, "Loading data…");
 
-  const [csvRes, graphRes] = await Promise.all([fetch(CSV_URL), fetch(GRAPH_URL)]);
-  if (!csvRes.ok) throw new Error(`CSV fetch failed: ${csvRes.status}`);
-  if (!graphRes.ok) throw new Error(`Graph fetch failed: ${graphRes.status}`);
+  const [csvRes, graphRes] = await Promise.all([fetch(csvUrl), fetch(graphUrl)]);
+  if (!csvRes.ok) throw new Error(`CSV fetch failed: ${csvUrl} (${csvRes.status})`);
+  if (!graphRes.ok) throw new Error(`Graph fetch failed: ${graphUrl} (${graphRes.status})`);
 
   const [csvText, graph] = await Promise.all([csvRes.text(), graphRes.json()]);
   setStatus(statusEl, "Aggregating…");
 
   const rows = parseCsv(csvText);
-  const model = buildReportModel(rows, graph);
+  const model = buildReportModel(rows, graph, { timelineStart });
+  model.imagesBase = imagesBase;
+  model.overviewImage = overviewImage;
 
   setStatus(statusEl, "Rendering…");
   renderReport(reportEl, model);
@@ -43,151 +60,190 @@ function setStatus(el, text) {
   if (el) el.textContent = text;
 }
 
-function buildReportModel(rows, graph) {
-  const parentOrder = parentOrderFromGraph(graph);
-  const parentTopics = new Map();
+function buildReportModel(rows, graph, { timelineStart = TIMELINE_START_DAY } = {}) {
+  const themeOrder = themeOrderFromGraph(graph);
+  const themes = new Map();
 
-  for (const name of parentOrder) {
-    parentTopics.set(name, emptyParent(name));
+  for (const name of themeOrder) {
+    themes.set(name, emptyTheme(name));
   }
 
   const overallStance = emptyStanceCounts();
+  const overallSeries = emptySeries();
+  let overallMinDay = null;
+  let overallMaxDay = null;
+  const platforms = Object.create(null);
   let totalPosts = 0;
   let datedPosts = 0;
 
   for (const row of rows) {
-    const parent = (row.parent_topic || "").trim();
+    const theme = (row.parent_topic || "").trim();
     const topic = (row.topic || "").trim();
-    if (!parent || !topic) continue;
+    if (!theme || !topic) continue;
 
-    if (!parentTopics.has(parent)) {
-      parentTopics.set(parent, emptyParent(parent));
-      parentOrder.push(parent);
+    if (!themes.has(theme)) {
+      themes.set(theme, emptyTheme(theme));
+      themeOrder.push(theme);
     }
 
     const stance = normalizeStance(row.stance);
     const day = dayFromPostedAt(row.posted_at);
+    const platform = normalizePlatform(row.platform);
 
-    const parentBucket = parentTopics.get(parent);
-    parentBucket.postCount += 1;
-    if (stance) parentBucket.stance[stance] += 1;
-    if (stance) overallStance[stance] += 1;
+    const themeBucket = themes.get(theme);
+    themeBucket.postCount += 1;
+    if (stance) {
+      themeBucket.stance[stance] += 1;
+      overallStance[stance] += 1;
+    }
     totalPosts += 1;
 
-    if (!parentBucket.topics.has(topic)) {
-      parentBucket.topics.set(topic, emptyTopic(topic));
-      parentBucket.topicOrder.push(topic);
+    if (platform) {
+      platforms[platform] = (platforms[platform] || 0) + 1;
     }
-    const topicBucket = parentBucket.topics.get(topic);
-    topicBucket.postCount += 1;
-    if (stance) topicBucket.stance[stance] += 1;
+
+    if (!themeBucket.topics.has(topic)) {
+      themeBucket.topics.set(topic, { name: topic, postCount: 0 });
+      themeBucket.topicOrder.push(topic);
+    }
+    themeBucket.topics.get(topic).postCount += 1;
 
     if (day && stance) {
       datedPosts += 1;
-      topicBucket.series[stance][day] = (topicBucket.series[stance][day] || 0) + 1;
-      if (!topicBucket.minDay || day < topicBucket.minDay) topicBucket.minDay = day;
-      if (!topicBucket.maxDay || day > topicBucket.maxDay) topicBucket.maxDay = day;
+      bumpSeries(themeBucket.series, stance, day);
+      bumpSeries(overallSeries, stance, day);
+      themeBucket.minDay = minDay(themeBucket.minDay, day);
+      themeBucket.maxDay = maxDay(themeBucket.maxDay, day);
+      overallMinDay = minDay(overallMinDay, day);
+      overallMaxDay = maxDay(overallMaxDay, day);
     }
   }
 
-  // Sort topics within each parent by post count desc
-  for (const parent of parentTopics.values()) {
-    parent.topicOrder.sort((a, b) => {
-      const ca = parent.topics.get(a).postCount;
-      const cb = parent.topics.get(b).postCount;
+  for (const theme of themes.values()) {
+    theme.topicOrder.sort((a, b) => {
+      const ca = theme.topics.get(a).postCount;
+      const cb = theme.topics.get(b).postCount;
       return cb - ca || a.localeCompare(b);
     });
   }
 
-  // Prefer graph parent order, then any extras by volume
-  const orderedParents = [
-    ...parentOrder.filter((n) => parentTopics.has(n)),
-    ...[...parentTopics.keys()]
-      .filter((n) => !parentOrder.includes(n))
+  const orderedThemes = [
+    ...themeOrder.filter((n) => themes.has(n)),
+    ...[...themes.keys()]
+      .filter((n) => !themeOrder.includes(n))
       .sort(
         (a, b) =>
-          parentTopics.get(b).postCount - parentTopics.get(a).postCount ||
-          a.localeCompare(b)
+          themes.get(b).postCount - themes.get(a).postCount || a.localeCompare(b)
       ),
   ];
-  // de-dupe while preserving order
   const seen = new Set();
-  const uniqueParents = [];
-  for (const n of orderedParents) {
+  const uniqueThemes = [];
+  for (const n of orderedThemes) {
     if (seen.has(n)) continue;
     seen.add(n);
-    uniqueParents.push(n);
+    uniqueThemes.push(n);
   }
+
+  const overallBucket = {
+    series: overallSeries,
+    minDay: overallMinDay,
+    maxDay: overallMaxDay,
+  };
+
+  const timelineWindow = {
+    startDay: timelineStart,
+    endDay: timelineEndDay(),
+  };
 
   return {
     totalPosts,
     datedPosts,
-    parentCount: uniqueParents.length,
+    themeCount: uniqueThemes.length,
     overallStance,
-    parents: uniqueParents.map((name) => {
-      const p = parentTopics.get(name);
+    overallDays: daysForSeriesBucket(overallBucket, timelineWindow),
+    overallSeries,
+    timelineWindow,
+    imagesBase: IMAGES_BASE,
+    overviewImage: OVERVIEW_IMAGE,
+    platforms,
+    themes: uniqueThemes.map((name) => {
+      const t = themes.get(name);
       return {
         name,
-        postCount: p.postCount,
-        stance: p.stance,
-        image: PARENT_IMAGE[name] || null,
-        topics: p.topicOrder.map((tName) => {
-          const t = p.topics.get(tName);
-          return {
-            name: tName,
-            postCount: t.postCount,
-            stance: t.stance,
-            days: daysForTopic(t),
-            series: t.series,
-          };
-        }),
+        postCount: t.postCount,
+        stance: t.stance,
+        image: THEME_IMAGE[name] || null,
+        days: daysForSeriesBucket(t, timelineWindow),
+        series: t.series,
+        topics: t.topicOrder.map((topicName) => ({
+          name: topicName,
+          postCount: t.topics.get(topicName).postCount,
+        })),
       };
     }),
   };
 }
 
-function parentOrderFromGraph(graph) {
+function themeOrderFromGraph(graph) {
   const nodes = Array.isArray(graph?.nodes) ? graph.nodes : [];
-  const parents = [];
+  const themes = [];
   for (const n of nodes) {
     if (n.type !== "parent_topic_node") continue;
     const label = (n.label || "").replace(/^Parent Topic:\s*/i, "").trim();
     const fromId = (n.id || "").replace(/^parent_topic_/, "").trim();
     const name = label || fromId;
-    if (name && !parents.includes(name)) parents.push(name);
+    if (name && !themes.includes(name)) themes.push(name);
   }
-  return parents;
+  return themes;
 }
 
-function emptyParent(name) {
+function emptyTheme(name) {
   return {
     name,
     postCount: 0,
     stance: emptyStanceCounts(),
+    series: emptySeries(),
+    minDay: null,
+    maxDay: null,
     topics: new Map(),
     topicOrder: [],
   };
 }
 
-function emptyTopic(name) {
-  return {
-    name,
-    postCount: 0,
-    stance: emptyStanceCounts(),
-    series: Object.fromEntries(STANCE_ORDER.map((k) => [k, Object.create(null)])),
-    minDay: null,
-    maxDay: null,
-  };
+function emptySeries() {
+  return Object.fromEntries(STANCE_ORDER.map((k) => [k, Object.create(null)]));
 }
 
 function emptyStanceCounts() {
   return Object.fromEntries(STANCE_ORDER.map((k) => [k, 0]));
 }
 
+function bumpSeries(series, stance, day) {
+  series[stance][day] = (series[stance][day] || 0) + 1;
+}
+
+function minDay(current, day) {
+  return !current || day < current ? day : current;
+}
+
+function maxDay(current, day) {
+  return !current || day > current ? day : current;
+}
+
 function normalizeStance(raw) {
   const s = (raw || "").trim();
   if (STANCE_ORDER.includes(s)) return s;
   return null;
+}
+
+function normalizePlatform(raw) {
+  const p = (raw || "").trim().toLowerCase();
+  if (!p) return null;
+  if (p === "twitter") return "x";
+  if (p === "yt") return "youtube";
+  if (p === "fb") return "facebook";
+  if (p === "ig") return "instagram";
+  return p;
 }
 
 function dayFromPostedAt(value) {
@@ -197,34 +253,20 @@ function dayFromPostedAt(value) {
   return d.toISOString().slice(0, 10);
 }
 
-/** Prefer continuous daily axis; fall back to active days when span is sparse. */
-function daysForTopic(topic) {
-  if (!topic.minDay || !topic.maxDay) return [];
-  const active = new Set();
-  for (const key of STANCE_ORDER) {
-    for (const day of Object.keys(topic.series[key] || {})) active.add(day);
-  }
-  const activeDays = [...active].sort();
-  if (!activeDays.length) return [];
-
-  const continuous = enumerateDays(topic.minDay, topic.maxDay);
-  // Avoid multi-year empty axes from a handful of outlier timestamps.
-  if (continuous.length > 45 && continuous.length > activeDays.length * 2) {
-    return activeDays;
-  }
-  return continuous;
-}
-
 function renderReport(root, model) {
   const frag = document.createDocumentFragment();
-
   frag.appendChild(renderCover(model));
-
-  for (const parent of model.parents) {
-    frag.appendChild(renderParentSection(parent));
+  for (const theme of model.themes) {
+    frag.appendChild(renderThemeSection(theme, model.timelineWindow, model.imagesBase));
   }
-
   root.replaceChildren(frag);
+}
+
+function timelineCaption(window) {
+  if (!window?.startDay || !window?.endDay) {
+    return "Daily post counts with sentiment distribution inside each bar.";
+  }
+  return `Daily post counts from ${formatDayLabel(window.startDay)} to ${formatDayLabel(window.endDay)} (older posts counted in totals only).`;
 }
 
 function renderCover(model) {
@@ -235,7 +277,7 @@ function renderCover(model) {
       <h1 class="cover-title">THE NEXUS</h1>
     </header>
     <figure class="cover-figure">
-      <img src="${IMAGES_BASE}${OVERVIEW_IMAGE}" alt="Overall Nexus graph" class="cover-image" />
+      <img src="${model.imagesBase}${model.overviewImage}" alt="Overall Nexus graph" class="cover-image" />
     </figure>
     <div class="cover-stats">
       <div class="stat">
@@ -243,17 +285,17 @@ function renderCover(model) {
         <div class="stat-label">Total posts</div>
       </div>
       <div class="stat">
-        <div class="stat-value">${model.parentCount}</div>
-        <div class="stat-label">Parent topics</div>
+        <div class="stat-value">${model.themeCount}</div>
+        <div class="stat-label">Themes</div>
       </div>
     </div>
     <div class="block">
-      <h2 class="block-title">Parent topics</h2>
-      <ol class="parent-list">
-        ${model.parents
+      <h2 class="block-title">Themes</h2>
+      <ol class="theme-list">
+        ${model.themes
           .map(
-            (p, i) =>
-              `<li><span class="parent-list-index">${i + 1}</span><span class="parent-list-name">${escapeHtml(p.name)}</span><span class="parent-list-count">${p.postCount.toLocaleString()}</span></li>`
+            (t, i) =>
+              `<li><span class="theme-list-index">${i + 1}</span><span class="theme-list-name">${escapeHtml(t.name)}</span><span class="theme-list-count">${t.postCount.toLocaleString()}</span></li>`
           )
           .join("")}
       </ol>
@@ -263,17 +305,38 @@ function renderCover(model) {
       <div class="legend">${stanceLegendHtml()}</div>
       ${stanceBarsHtml(model.overallStance, model.totalPosts)}
     </div>
+    <div class="block">
+      <h2 class="block-title">Overall timeline</h2>
+      <p class="muted">${escapeHtml(timelineCaption(model.timelineWindow))}</p>
+      <div class="legend">${stanceLegendHtml()}</div>
+      <div class="timeline-chart-wrap" data-overall-timeline></div>
+    </div>
+    <div class="block">
+      <h2 class="block-title">Platform ratio</h2>
+      <div class="platform-donut" data-platform-donut></div>
+    </div>
   `;
+
+  renderStackedTimeline(section.querySelector("[data-overall-timeline]"), {
+    days: model.overallDays,
+    series: model.overallSeries,
+    height: 190,
+  });
+  renderPlatformDonut(section.querySelector("[data-platform-donut]"), {
+    counts: model.platforms,
+    total: Object.values(model.platforms).reduce((a, b) => a + b, 0),
+  });
+
   return section;
 }
 
-function renderParentSection(parent) {
-  const section = el("section", "page page-parent");
-  const imgHtml = parent.image
-    ? `<figure class="parent-figure"><img src="${IMAGES_BASE}${parent.image}" alt="${escapeHtml(parent.name)} graph" class="parent-image" /></figure>`
+function renderThemeSection(theme, timelineWindow, imagesBase = IMAGES_BASE) {
+  const section = el("section", "page page-theme");
+  const imgHtml = theme.image
+    ? `<figure class="theme-figure"><img src="${imagesBase}${theme.image}" alt="${escapeHtml(theme.name)} graph" class="theme-image" /></figure>`
     : "";
 
-  const topicsList = parent.topics
+  const topicsList = theme.topics
     .map(
       (t) =>
         `<li><span class="topic-name">${escapeHtml(t.name)}</span><span class="topic-count">${t.postCount.toLocaleString()}</span></li>`
@@ -281,46 +344,34 @@ function renderParentSection(parent) {
     .join("");
 
   section.innerHTML = `
-    <header class="parent-header">
-      <p class="kicker">Parent topic</p>
-      <h1 class="parent-title">${escapeHtml(parent.name)}</h1>
-      <p class="parent-meta">${parent.postCount.toLocaleString()} posts · ${parent.topics.length} internal topics</p>
+    <header class="theme-header">
+      <p class="kicker">Theme</p>
+      <h1 class="theme-title">${escapeHtml(theme.name)}</h1>
+      <p class="theme-meta">${theme.postCount.toLocaleString()} posts · ${theme.topics.length} internal topics</p>
     </header>
     ${imgHtml}
     <div class="block">
       <h2 class="block-title">Sentiment</h2>
       <div class="legend">${stanceLegendHtml()}</div>
-      ${stanceBarsHtml(parent.stance, parent.postCount)}
+      ${stanceBarsHtml(theme.stance, theme.postCount)}
     </div>
     <div class="block">
       <h2 class="block-title">Internal topics</h2>
-      <ol class="topic-list">${topicsList}</ol>
+      <ol class="topic-list topic-list-columns">${topicsList}</ol>
     </div>
-    <div class="block timelines">
-      <h2 class="block-title">Timelines by internal topic</h2>
-      <p class="muted">Daily post counts with sentiment distribution inside each bar.</p>
+    <div class="block">
+      <h2 class="block-title">Timeline</h2>
+      <p class="muted">${escapeHtml(timelineCaption(timelineWindow))}</p>
       <div class="legend">${stanceLegendHtml()}</div>
-      <div class="timeline-list" data-parent="${escapeHtml(parent.name)}"></div>
+      <div class="timeline-chart-wrap" data-theme-timeline></div>
     </div>
   `;
 
-  const list = section.querySelector(".timeline-list");
-  for (const topic of parent.topics) {
-    const card = el("article", "timeline-card");
-    card.innerHTML = `
-      <header class="timeline-card-header">
-        <h3 class="timeline-card-title">${escapeHtml(topic.name)}</h3>
-        <p class="timeline-card-meta">${topic.postCount.toLocaleString()} posts</p>
-      </header>
-      <div class="timeline-chart-wrap"></div>
-    `;
-    const wrap = card.querySelector(".timeline-chart-wrap");
-    renderStackedTimeline(wrap, {
-      days: topic.days,
-      series: topic.series,
-    });
-    list.appendChild(card);
-  }
+  renderStackedTimeline(section.querySelector("[data-theme-timeline]"), {
+    days: theme.days,
+    series: theme.series,
+    height: 180,
+  });
 
   return section;
 }

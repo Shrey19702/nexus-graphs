@@ -17,6 +17,7 @@ import {
   stanceKey,
 } from "../../shared/js/theme.js";
 import { parseCsv } from "../../shared/js/csv.js";
+import { loadNexusDataConfig } from "../../shared/js/data-config.js";
 import {
   getDims,
   resizeCanvas as sharedResizeCanvas,
@@ -162,8 +163,11 @@ function activeTopicSortStances() {
 }
 const GOLDEN_ANGLE = 2.399963229728653;
 const CLICK_MOVE_PX = 5;
-const DATA_FILE = "graph2_parent_topic_topic_22_07.json";
-const SENTIMENT_FILE = "CJP_Master_Nexus_Input_22_July.csv";
+/** Fallbacks if shared/nexus-data.yml cannot be loaded. */
+const DATA_FILE_FALLBACK = "graph2_parent_topic_topic_23_07.json";
+const SENTIMENT_FILE_FALLBACK = "CJP_Master_Nexus_Input_23_July.csv";
+let DATA_FILE = DATA_FILE_FALLBACK;
+let SENTIMENT_FILE = SENTIMENT_FILE_FALLBACK;
 document.title = "Narratives";
 const PANEL_MAX_W = 400;
 
@@ -240,6 +244,9 @@ const settingsEl = document.getElementById("settings");
 const settingsToggle = document.getElementById("settings-toggle");
 const settingsClose = document.getElementById("settings-close");
 const settingsReset = document.getElementById("settings-reset");
+const dateFromInput = document.getElementById("date-from");
+const dateToInput = document.getElementById("date-to");
+const dateClearBtn = document.getElementById("date-clear");
 
 const state = {
   nodes: [],
@@ -260,6 +267,7 @@ const state = {
   selected: null,
   highlightIds: null,
   stanceFilter: null,
+  showAllStances: false,
   panelListQuery: "",
   panelMode: null,
   dragging: null,
@@ -273,6 +281,12 @@ const state = {
   settleParentIds: null,
   renderFrame: null,
   postsAnimating: false,
+  dateFromMs: null,
+  dateToMs: null,
+  postedAtMinMs: null,
+  postedAtMaxMs: null,
+  visiblePostCountsByTopic: new Map(),
+  visiblePostCountsByNarrative: new Map(),
 };
 
 let zoomBehavior = null;
@@ -395,6 +409,12 @@ function refreshClusterExtents() {
 
 
 // --- data ingest ---
+function parsePostedAtMs(raw) {
+  if (raw == null || raw === "") return null;
+  const ms = Date.parse(String(raw));
+  return Number.isFinite(ms) ? ms : null;
+}
+
 function attachSentiment(records) {
   const byPostId = new Map();
   for (const row of records) {
@@ -402,6 +422,8 @@ function attachSentiment(records) {
   }
   state.sentimentById = byPostId;
   let matched = 0;
+  let minMs = null;
+  let maxMs = null;
   for (const n of state.nodes) {
     if (n.type !== "regular_node") continue;
     const row = byPostId.get(String(n.rawPostId));
@@ -409,6 +431,7 @@ function attachSentiment(records) {
       n.sentiment = null;
       n.stance = null;
       n.stanceIndex = activeStanceOrder().length;
+      n.postedAt = null;
       continue;
     }
     matched += 1;
@@ -416,7 +439,15 @@ function attachSentiment(records) {
     n.stance = row.stance || null;
     const idx = activeStanceOrder().indexOf(n.stance);
     n.stanceIndex = idx >= 0 ? idx : activeStanceOrder().length;
+    n.postedAt = parsePostedAtMs(row.posted_at);
+    if (n.postedAt != null) {
+      if (minMs == null || n.postedAt < minMs) minMs = n.postedAt;
+      if (maxMs == null || n.postedAt > maxMs) maxMs = n.postedAt;
+    }
   }
+  state.postedAtMinMs = minMs;
+  state.postedAtMaxMs = maxMs;
+  syncDateFilterBounds();
   console.info(`Sentiment matched ${matched} / ${byPostId.size} CSV rows to graph posts`);
 }
 
@@ -965,10 +996,12 @@ function loadGraph(data) {
 function isExcluded(n) {
   if (!n) return true;
   if (n.type === "narrative_node") {
-    return !n.hasTopics && !settings.showEmptyTopics;
+    if (settings.showEmptyTopics) return false;
+    if (!n.hasTopics) return true;
+    return (state.visiblePostCountsByNarrative.get(n.id) || 0) === 0;
   }
   if (n.type === "topic_node") {
-    if (!settings.showEmptyPostTopics && getAllPostsForTopic(n).length === 0) {
+    if (!settings.showEmptyPostTopics && (state.visiblePostCountsByTopic.get(n.id) || 0) === 0) {
       return true;
     }
     if (n.parentId != null) {
@@ -985,7 +1018,7 @@ function isExcluded(n) {
     return false;
   }
   if (n.type === "regular_node") {
-    if (!isPostStanceVisible(n)) return true;
+    if (!isPostGraphVisible(n)) return true;
     if (n.parentId != null) {
       const parent = state.byId.get(n.parentId);
       if (parent && isExcluded(parent)) return true;
@@ -1208,7 +1241,7 @@ function placeSubtopicsAroundTopic(topic, subtopics, { immediate = false } = {})
 
 // Pack posts around a hub in angular wedges by stance so same-stance posts sit together.
 function placePostsByStance(parent, group, { immediate = false } = {}) {
-  const visibleGroup = group.filter(isPostStanceVisible);
+  const visibleGroup = group.filter(isPostGraphVisible);
   if (!visibleGroup.length) {
     if (parent.type === "subtopic_node") {
       parent.farthestPostDistance = parent.radius;
@@ -1582,12 +1615,54 @@ function isPostStanceVisible(post) {
   return isStanceVisible(stanceKey(post));
 }
 
+function isDateFilterActive() {
+  return state.dateFromMs != null || state.dateToMs != null;
+}
+
+function isPostInDateRange(post) {
+  if (!isDateFilterActive()) return true;
+  if (post == null || post.postedAt == null) return false;
+  if (state.dateFromMs != null && post.postedAt < state.dateFromMs) return false;
+  if (state.dateToMs != null && post.postedAt > state.dateToMs) return false;
+  return true;
+}
+
+function isPostGraphVisible(post) {
+  return isPostStanceVisible(post) && isPostInDateRange(post);
+}
+
+function refreshVisiblePostCounts() {
+  const byTopic = new Map();
+  const byNarrative = new Map();
+
+  for (const post of state.posts) {
+    if (!isPostGraphVisible(post)) continue;
+
+    let current = post.parentId != null ? state.byId.get(post.parentId) : null;
+    let countedTopic = false;
+    let countedNarrative = false;
+    while (current && (!countedTopic || !countedNarrative)) {
+      if (current.type === "topic_node" && !countedTopic) {
+        byTopic.set(current.id, (byTopic.get(current.id) || 0) + 1);
+        countedTopic = true;
+      } else if (current.type === "narrative_node" && !countedNarrative) {
+        byNarrative.set(current.id, (byNarrative.get(current.id) || 0) + 1);
+        countedNarrative = true;
+      }
+      current = current.parentId != null ? state.byId.get(current.parentId) : null;
+    }
+  }
+
+  state.visiblePostCountsByTopic = byTopic;
+  state.visiblePostCountsByNarrative = byNarrative;
+}
+
 function visibleStanceKeys() {
   return [...activeStanceOrder(), UNKNOWN_STANCE].filter(isStanceVisible);
 }
 
 function uiVisiblePosts(posts) {
-  return (posts || []).filter(isPostStanceVisible);
+  return (posts || []).filter(isPostGraphVisible);
 }
 
 function ensureValidStanceFilter() {
@@ -1597,7 +1672,7 @@ function ensureValidStanceFilter() {
 }
 
 function visiblePostsForParent(parent) {
-  return getPostsForParent(parent).filter(isPostStanceVisible);
+  return getPostsForParent(parent).filter(isPostGraphVisible);
 }
 
 function visiblePostsForTopic(topic) {
@@ -1699,7 +1774,91 @@ function applyStanceFilterHighlights(anchor, posts, children) {
 
 
 // --- settings UI ---
+function msToDateInputValue(ms) {
+  if (ms == null || !Number.isFinite(ms)) return "";
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+function parseDateInputStart(ymd) {
+  if (!ymd) return null;
+  const ms = Date.parse(`${ymd}T00:00:00.000Z`);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function parseDateInputEnd(ymd) {
+  if (!ymd) return null;
+  const ms = Date.parse(`${ymd}T23:59:59.999Z`);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function syncDateFilterBounds() {
+  const min = msToDateInputValue(state.postedAtMinMs);
+  const max = msToDateInputValue(state.postedAtMaxMs);
+  for (const input of [dateFromInput, dateToInput]) {
+    if (!input) continue;
+    if (min) input.min = min;
+    else input.removeAttribute("min");
+    if (max) input.max = max;
+    else input.removeAttribute("max");
+  }
+}
+
+function syncDateFilterControls() {
+  if (dateFromInput) dateFromInput.value = msToDateInputValue(state.dateFromMs);
+  if (dateToInput) dateToInput.value = msToDateInputValue(state.dateToMs);
+  if (dateClearBtn) dateClearBtn.disabled = !isDateFilterActive();
+}
+
+function applyDateFilterFromInputs() {
+  let fromMs = parseDateInputStart(dateFromInput?.value || "");
+  let toMs = parseDateInputEnd(dateToInput?.value || "");
+  if (fromMs != null && toMs != null && fromMs > toMs) {
+    // Swap so From/To stay ordered.
+    const fromYmd = dateFromInput.value;
+    dateFromInput.value = dateToInput.value;
+    dateToInput.value = fromYmd;
+    fromMs = parseDateInputStart(dateFromInput.value);
+    toMs = parseDateInputEnd(dateToInput.value);
+  }
+  state.dateFromMs = fromMs;
+  state.dateToMs = toMs;
+  if (dateClearBtn) dateClearBtn.disabled = !isDateFilterActive();
+  applySettingsLive({ visibilityChanged: true });
+  if (state.panelMode === "overview") openOverviewPanel({ keepFilter: true });
+  else if (state.panelMode === "detail" && state.selected) {
+    const sel = state.selected;
+    if (sel.type === "narrative_node") openNarrativePanel(sel, { keepFilter: true });
+    else if (sel.type === "topic_node") openTopicPanel(sel, { keepFilter: true });
+    else if (sel.type === "subtopic_node") openSubtopicPanel(sel, { keepFilter: true });
+  }
+}
+
+function clearDateFilter() {
+  if (dateFromInput) dateFromInput.value = "";
+  if (dateToInput) dateToInput.value = "";
+  state.dateFromMs = null;
+  state.dateToMs = null;
+  if (dateClearBtn) dateClearBtn.disabled = true;
+  applySettingsLive({ visibilityChanged: true });
+  if (state.panelMode === "overview") openOverviewPanel({ keepFilter: true });
+  else if (state.panelMode === "detail" && state.selected) {
+    const sel = state.selected;
+    if (sel.type === "narrative_node") openNarrativePanel(sel, { keepFilter: true });
+    else if (sel.type === "topic_node") openTopicPanel(sel, { keepFilter: true });
+    else if (sel.type === "subtopic_node") openSubtopicPanel(sel, { keepFilter: true });
+  }
+}
+
+function setupDateFilter() {
+  dateFromInput?.addEventListener("change", applyDateFilterFromInputs);
+  dateToInput?.addEventListener("change", applyDateFilterFromInputs);
+  dateClearBtn?.addEventListener("click", clearDateFilter);
+  syncDateFilterBounds();
+  syncDateFilterControls();
+}
+
 function applySettingsLive({ visibilityChanged = false } = {}) {
+  if (visibilityChanged) refreshVisiblePostCounts();
   applyNodeRadii();
   layoutAllLocalPacks({ immediate: visibilityChanged });
   if (state.simulation) {
@@ -1822,7 +1981,7 @@ function setSettingFromUi(key, rawValue) {
     settings.stanceVisibility[stance] = Boolean(visible);
     ensureValidStanceFilter();
     syncStanceVisibilityControls();
-    applySettingsLive({ visibilityChanged: false });
+    applySettingsLive({ visibilityChanged: true });
     layoutAllLocalPacks({ immediate: true });
     if (state.panelMode === "overview") openOverviewPanel({ keepFilter: true });
     else refreshOpenPanelForStanceSort();
@@ -1862,6 +2021,7 @@ function setupSettings() {
   setSettingsOpen(false);
   buildStanceVisibilityControls();
   syncAllSettingControls();
+  setupDateFilter();
 
   const bindPair = (key) => {
     const range = document.getElementById(`set-${key}`);
@@ -2061,6 +2221,7 @@ function appendStanceDistribution(parent, posts, { onFilterChange } = {}) {
   const { total, entries } = computeStanceDistribution(posts);
   const wrap = document.createElement("div");
   wrap.className = "stance-dist";
+  const canFilter = typeof onFilterChange === "function";
 
   const count = document.createElement("div");
   count.className = "panel-count";
@@ -2069,7 +2230,9 @@ function appendStanceDistribution(parent, posts, { onFilterChange } = {}) {
     : total;
   count.textContent = state.stanceFilter
     ? `${filtered} of ${total} post${total === 1 ? "" : "s"} · filtered`
-    : `${total} post${total === 1 ? "" : "s"}`;
+    : state.showAllStances
+      ? `${total} post${total === 1 ? "" : "s"} · all colors`
+      : `${total} post${total === 1 ? "" : "s"}`;
   wrap.appendChild(count);
 
   const bar = document.createElement("div");
@@ -2100,6 +2263,29 @@ function appendStanceDistribution(parent, posts, { onFilterChange } = {}) {
   }
   wrap.appendChild(bar);
 
+  if (
+    canFilter &&
+    (state.panelMode === "overview" || state.selected?.type === "narrative_node")
+  ) {
+    const allBtn = document.createElement("button");
+    allBtn.type = "button";
+    allBtn.className = "stance-all-colors-btn";
+    if (state.showAllStances) allBtn.classList.add("is-active");
+    allBtn.setAttribute("aria-pressed", state.showAllStances ? "true" : "false");
+    allBtn.title = state.showAllStances
+      ? "Hide sentiment colors on the graph"
+      : "Color every post by its sentiment on the graph";
+    allBtn.textContent = state.showAllStances
+      ? "Showing all colors"
+      : "Show all colors";
+    allBtn.addEventListener("click", () => {
+      state.stanceFilter = null;
+      state.showAllStances = !state.showAllStances;
+      onFilterChange(state.stanceFilter);
+    });
+    wrap.appendChild(allBtn);
+  }
+
   const legend = document.createElement("div");
   legend.className = "stance-legend";
   for (const e of entries) {
@@ -2107,7 +2293,7 @@ function appendStanceDistribution(parent, posts, { onFilterChange } = {}) {
     const row = document.createElement("button");
     row.type = "button";
     row.className = "stance-legend-row";
-    if (typeof onFilterChange === "function") row.classList.add("is-clickable");
+    if (canFilter) row.classList.add("is-clickable");
     if (state.stanceFilter === e.stance) row.classList.add("is-active");
     else if (state.stanceFilter) row.classList.add("is-dimmed");
     row.title = state.stanceFilter === e.stance
@@ -2131,7 +2317,8 @@ function appendStanceDistribution(parent, posts, { onFilterChange } = {}) {
     row.appendChild(meta);
 
     row.addEventListener("click", () => {
-      if (typeof onFilterChange !== "function") return;
+      if (!canFilter) return;
+      state.showAllStances = false;
       state.stanceFilter = state.stanceFilter === e.stance ? null : e.stance;
       onFilterChange(state.stanceFilter);
     });
@@ -2323,6 +2510,7 @@ function appendPostsList(parentEl, posts) {
 
 function openPostPanel(post) {
   state.stanceFilter = null;
+  state.showAllStances = false;
   state.panelListQuery = "";
   state.panelMode = "detail";
   state.selected = post;
@@ -2479,6 +2667,7 @@ function openPostPanel(post) {
 function openSubtopicPanel(subtopic, { keepFilter = false } = {}) {
   if (!keepFilter) {
     state.stanceFilter = null;
+    state.showAllStances = false;
     state.panelListQuery = "";
   }
   ensureValidStanceFilter();
@@ -2521,6 +2710,7 @@ function openSubtopicPanel(subtopic, { keepFilter = false } = {}) {
 function openTopicPanel(topic, { keepFilter = false } = {}) {
   if (!keepFilter) {
     state.stanceFilter = null;
+    state.showAllStances = false;
     state.panelListQuery = "";
   }
   ensureValidStanceFilter();
@@ -2570,15 +2760,22 @@ function openTopicPanel(topic, { keepFilter = false } = {}) {
     subsField.className = "panel-field";
     const subsLab = document.createElement("div");
     subsLab.className = "panel-label";
-    subsLab.textContent = state.stanceFilter
-      ? `Subtopics (${visibleSubtopics.length} of ${subtopics.length})`
-      : `Subtopics (${subtopics.length})`;
+    subsLab.textContent =
+      visibleSubtopics.length !== subtopics.length
+        ? `Subtopics (${visibleSubtopics.length} of ${subtopics.length})`
+        : `Subtopics (${visibleSubtopics.length})`;
     subsField.appendChild(subsLab);
 
     const subsWrap = document.createElement("div");
     subsWrap.className = "panel-narratives";
     if (!visibleSubtopics.length) {
-      subsWrap.appendChild(makeValue(state.stanceFilter ? "No subtopics for this sentiment." : "No subtopics."));
+      subsWrap.appendChild(
+        makeValue(
+          state.stanceFilter || isDateFilterActive()
+            ? "No subtopics with posts in this filter."
+            : "No subtopics."
+        )
+      );
     } else {
       for (const st of visibleSubtopics) {
         const stPosts = uiVisiblePosts(getPostsForParent(st));
@@ -2614,6 +2811,7 @@ function openTopicPanel(topic, { keepFilter = false } = {}) {
 function openNarrativePanel(pillar, { keepFilter = false } = {}) {
   if (!keepFilter) {
     state.stanceFilter = null;
+    state.showAllStances = false;
     state.panelListQuery = "";
   }
   ensureValidStanceFilter();
@@ -2637,19 +2835,20 @@ function openNarrativePanel(pillar, { keepFilter = false } = {}) {
   const topicsWithVisiblePosts = (t) =>
     postsMatchingStance(getAllPostsForTopic(t), state.stanceFilter).length > 0;
 
-  const baseLabel = state.stanceFilter
-    ? `Topics (${topics.filter(topicsWithVisiblePosts).length} of ${topics.length})`
-    : `Topics (${topics.length})`;
+  const listedTopics = sortTopicsByPoliticalStance(topics).filter(topicsWithVisiblePosts);
+
+  const baseLabel = `Topics (${listedTopics.length}${
+    listedTopics.length !== topics.length ? ` of ${topics.length}` : ""
+  })`;
 
   appendListChrome(topicsField, {
     labelText: baseLabel,
     searchPlaceholder: "Search topics…",
-    emptyText: state.stanceFilter ? "No topics for this sentiment." : "No linked topics.",
-    getItems: () =>
-      sortTopicsByPoliticalStance(topics).filter((t) => {
-        if (!state.stanceFilter) return true;
-        return topicsWithVisiblePosts(t);
-      }),
+    emptyText:
+      state.stanceFilter || isDateFilterActive()
+        ? "No topics with posts in this filter."
+        : "No linked topics.",
+    getItems: () => listedTopics,
     matchItem: (t, q) => {
       const meta = topicSortMeta(t);
       const hay = [
@@ -2687,11 +2886,7 @@ function openNarrativePanel(pillar, { keepFilter = false } = {}) {
 
   render();
   if (!keepFilter) {
-    const visibleTopics = sortTopicsByPoliticalStance(topics).filter((t) => {
-      if (!state.stanceFilter) return true;
-      return topicsWithVisiblePosts(t);
-    });
-    focusNodes([pillar, ...visibleTopics, ...filteredPosts]);
+    focusNodes([pillar, ...listedTopics, ...filteredPosts]);
   }
 }
 
@@ -2700,6 +2895,7 @@ function closePanel() {
   state.selected = null;
   state.highlightIds = null;
   state.stanceFilter = null;
+  state.showAllStances = false;
   state.panelMode = null;
   state.panelListQuery = "";
   document.body.classList.remove("panel-open");
@@ -2713,7 +2909,7 @@ function closePanel() {
 
 function applyOverviewStanceHighlights(posts) {
   ensureValidStanceFilter();
-  if (!state.stanceFilter) {
+  if (!state.stanceFilter && !state.showAllStances) {
     state.highlightIds = null;
     return postsMatchingStance(posts, null);
   }
@@ -2733,6 +2929,7 @@ function applyOverviewStanceHighlights(posts) {
 function openOverviewPanel({ keepFilter = false } = {}) {
   if (!keepFilter) {
     state.stanceFilter = null;
+    state.showAllStances = false;
     state.panelListQuery = "";
   }
   ensureValidStanceFilter();
@@ -2756,22 +2953,29 @@ function openOverviewPanel({ keepFilter = false } = {}) {
 
   const allPosts = uiVisiblePosts(state.posts);
   applyOverviewStanceHighlights(allPosts);
-  const topicCount = state.topics.length;
-  const emptyTopicCount = state.topics.filter(
-    (t) => getAllPostsForTopic(t).length === 0
+  const narrativesWithPosts = narratives.filter(
+    (n) => uiVisiblePosts(getAllPostsForPillar(n)).length > 0
+  );
+  const topicCount = state.topics.filter(
+    (t) => uiVisiblePosts(getAllPostsForTopic(t)).length > 0
   ).length;
-  const emptyNarrativeCount = state.narratives.filter((n) => !n.hasTopics).length;
+  const emptyTopicCount = state.topics.filter(
+    (t) => uiVisiblePosts(getAllPostsForTopic(t)).length === 0
+  ).length;
+  const emptyNarrativeCount = state.narratives.filter(
+    (n) => uiVisiblePosts(getAllPostsForPillar(n)).length === 0
+  ).length;
 
   appendPanelHero(
     panelBody,
     "All narratives",
-    `${narratives.length} narratives · ${topicCount} topics · ${allPosts.length} posts`
+    `${narrativesWithPosts.length} narratives · ${topicCount} topics · ${allPosts.length} posts`
   );
 
   const stats = document.createElement("div");
   stats.className = "overview-stats";
   const statItems = [
-    { label: "Narratives", value: String(narratives.length) },
+    { label: "Narratives", value: String(narrativesWithPosts.length) },
     { label: "Topics", value: String(topicCount) },
     { label: "Posts", value: String(allPosts.length) },
     {
@@ -2802,20 +3006,19 @@ function openOverviewPanel({ keepFilter = false } = {}) {
     onFilterChange: () => openOverviewPanel({ keepFilter: true }),
   });
 
-  const visibleNarratives = state.stanceFilter
-    ? narratives.filter(
-        (pillar) =>
-          postsMatchingStance(getAllPostsForPillar(pillar), state.stanceFilter).length > 0
-      )
-    : narratives;
+  const visibleNarratives = narratives.filter(
+    (pillar) =>
+      postsMatchingStance(getAllPostsForPillar(pillar), state.stanceFilter).length > 0
+  );
 
   const listField = document.createElement("div");
   listField.className = "panel-field";
   const listLab = document.createElement("div");
   listLab.className = "panel-label";
-  listLab.textContent = state.stanceFilter
-    ? `Narratives (${visibleNarratives.length} of ${narratives.length})`
-    : `Narratives (${narratives.length})`;
+  listLab.textContent =
+    visibleNarratives.length !== narratives.length
+      ? `Narratives (${visibleNarratives.length} of ${narratives.length})`
+      : `Narratives (${visibleNarratives.length})`;
   listField.appendChild(listLab);
 
   const list = document.createElement("div");
@@ -2824,7 +3027,9 @@ function openOverviewPanel({ keepFilter = false } = {}) {
   if (!visibleNarratives.length) {
     list.appendChild(
       makeValue(
-        state.stanceFilter ? "No narratives for this sentiment." : "No narratives loaded."
+        state.stanceFilter || isDateFilterActive()
+          ? "No narratives with posts in this filter."
+          : "No narratives loaded."
       )
     );
   } else {
@@ -2833,7 +3038,9 @@ function openOverviewPanel({ keepFilter = false } = {}) {
       const posts = uiVisiblePosts(getAllPostsForPillar(pillar));
       const matchingPosts = postsMatchingStance(posts, state.stanceFilter);
       const { entries } = computeStanceDistribution(posts);
-      const emptyTopics = topics.filter((t) => getAllPostsForTopic(t).length === 0).length;
+      const emptyTopics = topics.filter(
+        (t) => uiVisiblePosts(getAllPostsForTopic(t)).length === 0
+      ).length;
       const card = document.createElement("button");
       card.type = "button";
       card.className = "narrative-card narrative-card-btn overview-narrative-card";
@@ -2940,9 +3147,13 @@ function hubFocusActive() {
   );
 }
 
+function stanceColorsRequested() {
+  return Boolean(state.stanceFilter || state.showAllStances);
+}
+
 function stancePostHighlightActive() {
-  if (state.panelMode === "overview" && state.stanceFilter) return true;
-  if (state.stanceFilter && hubFocusActive()) return true;
+  if (state.panelMode === "overview" && stanceColorsRequested()) return true;
+  if (stanceColorsRequested() && hubFocusActive()) return true;
   if (!hubFocusActive() && state.selected?.type !== "regular_node") return false;
   return (
     state.selected?.type === "topic_node" ||
@@ -3094,7 +3305,7 @@ function render() {
         state.selected?.type === "topic_node" ||
         state.selected?.type === "subtopic_node" ||
         state.selected === n ||
-        (state.stanceFilter &&
+        (stanceColorsRequested() &&
           (state.selected?.type === "narrative_node" ||
             state.selected?.type === "topic_node")));
     const r = focusing && selected ? postR() + 1.75 : selected || state.selected === n ? postR() + 1 : postR();
@@ -3611,11 +3822,21 @@ async function init() {
   window.addEventListener("resize", onResize);
 
   try {
+    try {
+      const dataConfig = await loadNexusDataConfig();
+      DATA_FILE = dataConfig.graphUrl;
+      SENTIMENT_FILE = dataConfig.csvUrl;
+    } catch (configErr) {
+      console.warn("Using local data file fallbacks:", configErr);
+      DATA_FILE = DATA_FILE_FALLBACK;
+      SENTIMENT_FILE = SENTIMENT_FILE_FALLBACK;
+    }
+
     const [graphRes, sentimentRes] = await Promise.all([
       fetch(DATA_FILE),
       fetch(SENTIMENT_FILE),
     ]);
-    if (!graphRes.ok) throw new Error(`Failed to load graph: ${graphRes.status}`);
+    if (!graphRes.ok) throw new Error(`Failed to load graph: ${DATA_FILE} (${graphRes.status})`);
     const data = await graphRes.json();
     loadGraph(data);
 
@@ -3623,9 +3844,10 @@ async function init() {
       const csvText = await sentimentRes.text();
       attachSentiment(parseCsv(csvText));
     } else {
-      console.warn(`Sentiment CSV not loaded (${sentimentRes.status}); continuing without it.`);
+      console.warn(`Sentiment CSV not loaded (${SENTIMENT_FILE}: ${sentimentRes.status}); continuing without it.`);
     }
 
+    refreshVisiblePostCounts();
     seedPositions();
     startSimulation();
     render();

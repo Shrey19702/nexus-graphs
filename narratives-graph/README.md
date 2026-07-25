@@ -2,7 +2,7 @@
 
 Interactive Canvas + D3 force layout: **narrative** → **topic** → **posts**.
 
-Data: `graph2_parent_topic_topic_22_07.json` (`parent_topic_node` / legacy `pillar_node` map to narratives) + `CJP_Master_Nexus_Input_22_July.csv`.
+Data paths live in [`../shared/nexus-data.yml`](../shared/nexus-data.yml) (`csv` + `graph`). Current dumps: `graph2_parent_topic_topic_23_07.json` (`parent_topic_node` / legacy `pillar_node` map to narratives) + `CJP_Master_Nexus_Input_23_July.csv`.
 
 Append new moderation batches with `python3 append_nexus_data.py --csv path/to/new.csv`.
 
