@@ -146,12 +146,18 @@ img {
   background: var(--soft);
   border: 1px solid var(--line);
   border-radius: 12px;
+  text-align: center;
 }
 
 .cover-image,
 .theme-image {
-  width: 100%;
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
   border-radius: 6px;
+  object-fit: contain;
 }
 
 .cover-stats {
@@ -460,6 +466,12 @@ img {
     page-break-before: always;
   }
 
+  /* When cover is omitted (?only=…), don't start with a blank page */
+  .page-theme:first-child {
+    break-before: auto;
+    page-break-before: auto;
+  }
+
   .page-cover + .page-theme {
     break-before: auto;
     page-break-before: auto;
@@ -497,15 +509,25 @@ img {
     box-shadow: none;
   }
 
+  /* Preserve native aspect ratio — never set width:100% with a short max-height
+     (Chrome print was stretching bitmaps into flat ellipses). */
   .cover-image,
   .theme-image {
-    max-height: 280px;
+    display: block;
+    width: auto;
+    max-width: 100%;
+    height: auto;
     object-fit: contain;
     margin: 0 auto;
   }
 
+  .cover-image {
+    max-height: 360px;
+  }
+
+  /* Larger topic graph so theme pages use the empty lower space */
   .theme-image {
-    max-height: 200px;
+    max-height: 300px;
   }
 
   .topic-list-columns {
@@ -536,6 +558,18 @@ img {
   .block:has(> .stance-bars) {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  /* Keep Timeline title + caption + legend + chart together (no orphan chart page). */
+  .block:has(.timeline-chart-wrap) {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .block:has(.timeline-chart-wrap) > .block-title,
+  .block:has(.timeline-chart-wrap) > .muted,
+  .block:has(.timeline-chart-wrap) > .legend {
+    break-after: avoid;
+    page-break-after: avoid;
   }
 
   /* Keep donut + legend side-by-side (print width often hits the mobile query). */

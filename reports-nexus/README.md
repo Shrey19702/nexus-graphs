@@ -1,6 +1,6 @@
 # Nexus Report
 
-Print-ready HTML report built from the narratives graph CSV + theme/topic graph.
+Print-ready HTML report built from the theme graph CSV + theme/topic graph.
 
 ## Open locally
 

@@ -1,5 +1,5 @@
 /**
- * Entry: narratives-graph
+ * Entry: themes graph (narratives-graph/)
  * Loads D3 from CDN (classic script in index.html), then this module.
  */
 import "./app.js";

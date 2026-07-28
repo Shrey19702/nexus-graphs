@@ -1,5 +1,5 @@
 /**
- * Narratives graph
+ * Themes graph
  *
  * Domain logic for this graph view. Shared Civic Signal utilities live in
  * ../../shared/js/ (theme, csv, canvas, forces, panel primitives).
@@ -101,7 +101,7 @@ const GRID_DOT_ALPHA = 0.16;
 // Soft family territory discs behind each parent cluster
 const FAMILY_AURA_ALPHA = 0.11;
 const FAMILY_AURA_STROKE_ALPHA = 0.22;
-// Political axis used to order topics in the narrative panel (anti → pro default)
+// Political axis used to order topics in the theme panel (anti → pro default)
 const TOPIC_SORT_STANCES_ANTI_FIRST = [
   "anti_government",
   "anti_cjp",
@@ -168,7 +168,7 @@ const DATA_FILE_FALLBACK = "graph2_parent_topic_topic_23_07.json";
 const SENTIMENT_FILE_FALLBACK = "CJP_Master_Nexus_Input_23_July.csv";
 let DATA_FILE = DATA_FILE_FALLBACK;
 let SENTIMENT_FILE = SENTIMENT_FILE_FALLBACK;
-document.title = "Narratives";
+document.title = "Themes";
 const PANEL_MAX_W = 400;
 
 const SETTINGS_DEFAULTS = {
@@ -807,6 +807,7 @@ function displayLabelFromNode(n) {
       .replace(/^Subtopic:\s*/i, "")
       .replace(/^Post:\s*/i, "")
       .replace(/^Narrative:\s*/i, "")
+      .replace(/^Theme:\s*/i, "")
       .trim();
   }
   const raw = String(n.rawId || "");
@@ -2347,6 +2348,7 @@ function cleanNodeMetaLabel(label, displayLabel) {
     .replace(/^Subtopic:\s*/i, "")
     .replace(/^Post:\s*/i, "")
     .replace(/^Narrative:\s*/i, "")
+    .replace(/^Theme:\s*/i, "")
     .trim();
   if (!cleaned || cleaned === displayLabel) return null;
   return cleaned;
@@ -2652,7 +2654,7 @@ function openPostPanel(post) {
       parentWrap.appendChild(
         makeNavCard({
           title: parent ? parent.displayLabel || parent.rawId : String(parentId),
-          meta: pillarLabel ? `Narrative: ${pillarLabel}` : cleanNodeMetaLabel(parent?.label, parent?.displayLabel),
+          meta: pillarLabel ? `Theme: ${pillarLabel}` : cleanNodeMetaLabel(parent?.label, parent?.displayLabel),
           hint,
           color: parent?.color || null,
           onClick: parent ? onClick : null,
@@ -2732,18 +2734,18 @@ function openTopicPanel(topic, { keepFilter = false } = {}) {
   pillarWrap.className = "panel-narratives";
   const pillar = topic.parentId != null ? state.byId.get(topic.parentId) : null;
   if (!pillar) {
-    pillarWrap.appendChild(makeValue("No parent narrative."));
+    pillarWrap.appendChild(makeValue("No parent theme."));
   } else {
     pillarWrap.appendChild(
       makeNavCard({
         title: pillar.displayLabel || pillar.rawId,
-        hint: "Open narrative →",
+        hint: "Open theme →",
         color: pillar.color || topic.color || null,
         onClick: () => openNarrativePanel(pillar),
       })
     );
   }
-  appendField(panelBody, "Narrative", pillarWrap);
+  appendField(panelBody, "Theme", pillarWrap);
 
   appendStanceDistribution(panelBody, allPosts, {
     onFilterChange: () => openTopicPanel(topic, { keepFilter: true }),
@@ -2820,7 +2822,7 @@ function openNarrativePanel(pillar, { keepFilter = false } = {}) {
   const allPosts = uiVisiblePosts(getAllPostsForPillar(pillar));
   state.selected = pillar;
   const filteredPosts = applyStanceFilterHighlights(pillar, allPosts, topics);
-  showPanelShell("Narrative");
+  showPanelShell("Theme");
   panelBody.replaceChildren();
 
   appendPanelHero(panelBody, pillar.displayLabel || pillar.rawId || "—");
@@ -2968,14 +2970,14 @@ function openOverviewPanel({ keepFilter = false } = {}) {
 
   appendPanelHero(
     panelBody,
-    "All narratives",
-    `${narrativesWithPosts.length} narratives · ${topicCount} topics · ${allPosts.length} posts`
+    "All themes",
+    `${narrativesWithPosts.length} themes · ${topicCount} topics · ${allPosts.length} posts`
   );
 
   const stats = document.createElement("div");
   stats.className = "overview-stats";
   const statItems = [
-    { label: "Narratives", value: String(narrativesWithPosts.length) },
+    { label: "Themes", value: String(narrativesWithPosts.length) },
     { label: "Topics", value: String(topicCount) },
     { label: "Posts", value: String(allPosts.length) },
     {
@@ -2983,7 +2985,7 @@ function openOverviewPanel({ keepFilter = false } = {}) {
       value: String(emptyTopicCount),
     },
     {
-      label: "Empty narratives",
+      label: "Empty themes",
       value: String(emptyNarrativeCount),
     },
   ];
@@ -3017,8 +3019,8 @@ function openOverviewPanel({ keepFilter = false } = {}) {
   listLab.className = "panel-label";
   listLab.textContent =
     visibleNarratives.length !== narratives.length
-      ? `Narratives (${visibleNarratives.length} of ${narratives.length})`
-      : `Narratives (${visibleNarratives.length})`;
+      ? `Themes (${visibleNarratives.length} of ${narratives.length})`
+      : `Themes (${visibleNarratives.length})`;
   listField.appendChild(listLab);
 
   const list = document.createElement("div");
@@ -3028,8 +3030,8 @@ function openOverviewPanel({ keepFilter = false } = {}) {
     list.appendChild(
       makeValue(
         state.stanceFilter || isDateFilterActive()
-          ? "No narratives with posts in this filter."
-          : "No narratives loaded."
+          ? "No themes with posts in this filter."
+          : "No themes loaded."
       )
     );
   } else {
@@ -3114,7 +3116,7 @@ function openOverviewPanel({ keepFilter = false } = {}) {
 
       const hint = document.createElement("div");
       hint.className = "narrative-card-hint";
-      hint.textContent = "Open narrative →";
+      hint.textContent = "Open theme →";
       card.appendChild(hint);
 
       card.addEventListener("click", () => openNarrativePanel(pillar));
@@ -3489,7 +3491,7 @@ function render() {
     }
   }
 
-  // Narratives (draw on top)
+  // Themes (draw on top)
   for (const n of state.narratives) {
     if (isExcluded(n) || !Number.isFinite(n.x)) continue;
     if (!visible(n, n.radius)) continue;

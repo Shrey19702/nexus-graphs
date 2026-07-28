@@ -359,7 +359,7 @@ function profileCollisionRadius(d) {
   return d.profileCollisionRadius || d.farthestPostDistance || d.radius || settings.profileSize;
 }
 
-// Hex-lattice stance packing (same pattern as topic-graph narratives).
+// Hex-lattice stance packing (same pattern as themes graph).
 // Collision radius = farthest packed post centre from the profile.
 function layoutPostsAroundProfile(profile, { immediate = true } = {}) {
   const posts = profile.posts || [];

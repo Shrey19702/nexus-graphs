@@ -11,7 +11,7 @@ import {
   IMAGES_BASE,
   TIMELINE_START_DAY,
   timelineEndDay,
-} from "./constants.js";
+} from "./constants.js?v=2026-07-27-image-aspect";
 import {
   daysForSeriesBucket,
   renderStackedTimeline,
@@ -255,9 +255,23 @@ function dayFromPostedAt(value) {
 
 function renderReport(root, model) {
   const frag = document.createDocumentFragment();
-  frag.appendChild(renderCover(model));
-  for (const theme of model.themes) {
-    frag.appendChild(renderThemeSection(theme, model.timelineWindow, model.imagesBase));
+  const params = new URLSearchParams(window.location.search);
+  const onlyParam = params.get("only");
+  const coverOnly = params.get("cover") === "1";
+  const themesOnly = onlyParam
+    ? onlyParam.split(/[|~]+/).map((s) => s.trim()).filter(Boolean)
+    : null;
+
+  if (!themesOnly) {
+    frag.appendChild(renderCover(model));
+  }
+  if (!coverOnly) {
+    const themes = themesOnly
+      ? model.themes.filter((t) => themesOnly.includes(t.name))
+      : model.themes;
+    for (const theme of themes) {
+      frag.appendChild(renderThemeSection(theme, model.timelineWindow, model.imagesBase));
+    }
   }
   root.replaceChildren(frag);
 }
@@ -277,7 +291,7 @@ function renderCover(model) {
       <h1 class="cover-title">THE NEXUS</h1>
     </header>
     <figure class="cover-figure">
-      <img src="${model.imagesBase}${model.overviewImage}" alt="Overall Nexus graph" class="cover-image" />
+      <img src="${imageUrl(model.imagesBase, model.overviewImage)}" alt="Overall Nexus graph" class="cover-image" />
     </figure>
     <div class="cover-stats">
       <div class="stat">
@@ -330,10 +344,16 @@ function renderCover(model) {
   return section;
 }
 
+function imageUrl(imagesBase, filename) {
+  if (!filename) return "";
+  // Encode the filename only — keeps `&` etc. safe in HTML src / HTTP paths.
+  return `${imagesBase}${String(filename).split("/").map(encodeURIComponent).join("/")}`;
+}
+
 function renderThemeSection(theme, timelineWindow, imagesBase = IMAGES_BASE) {
   const section = el("section", "page page-theme");
   const imgHtml = theme.image
-    ? `<figure class="theme-figure"><img src="${imagesBase}${theme.image}" alt="${escapeHtml(theme.name)} graph" class="theme-image" /></figure>`
+    ? `<figure class="theme-figure"><img src="${imageUrl(imagesBase, theme.image)}" alt="${escapeHtml(theme.name)} graph" class="theme-image" /></figure>`
     : "";
 
   const topicsList = theme.topics

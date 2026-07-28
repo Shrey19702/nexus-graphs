@@ -51,6 +51,10 @@ export const THEME_IMAGE = {
   "Social and Cultural Issues": "social_n_cultural_issues.png",
   "Governance and Policy": "government_n_policy.png",
   "Legal and Judicial Matters": "legal_n_judcial_matters.png",
+  "Post-Resignation Education Ministry Developments":
+    "Post-Resignation_Education_Ministry_Developments.png",
+  "E20 Janta Party & Fuel Choice Movement":
+    "E20_Janta_Party_and_Fuel_Choice_Movement.png",
 };
 
 export const OVERVIEW_IMAGE = "narrative-graph.png";

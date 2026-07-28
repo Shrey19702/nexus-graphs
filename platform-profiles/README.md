@@ -8,7 +8,7 @@ Based on the topic-graph visualizer, adapted for a two-level platform model (no 
 
 - `js/main.js` — ES module entry
 - `js/app.js` — profiles domain logic
-- `../shared/js/` — theme, CSV, canvas, forces, panel primitives shared with narratives-graph
+- `../shared/js/` — theme palette, CSV, canvas, forces, panel primitives shared with themes graph (narratives-graph)
 
 ## Quick start
 
@@ -81,7 +81,7 @@ Dense rings (e.g. 69 generals) are split across a few close lanes inside the ban
 
 Sentiment CSV is the primary sheet; `profile_url` was merged in from the all-results sheet (empty when missing). Posts attach to profiles by normalized `profile_url` ↔ profile node id.
 
-Click a profile to see stance distribution + post list (same pattern as topic-graph narratives). Linked posts occupy a stance-ordered hex lattice around the profile; each profile’s structural collision radius is its farthest packed post centre so post clouds reserve space without simulating every post.
+Click a profile to see stance distribution + post list (same pattern as the themes graph). Linked posts occupy a stance-ordered hex lattice around the profile; each profile’s structural collision radius is its farthest packed post centre so post clouds reserve space without simulating every post.
 
 ## Tunables (`app.js`)
 
