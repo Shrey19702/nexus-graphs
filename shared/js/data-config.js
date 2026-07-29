@@ -42,6 +42,7 @@ export function resolveRepoPath(pathFromRoot) {
  *   graph: string,
  *   images_base: string,
  *   overview_image: string,
+ *   images_version: string,
  *   timeline_start: string,
  *   csvUrl: string,
  *   graphUrl: string,
@@ -62,6 +63,7 @@ export async function loadNexusDataConfig() {
 
   const images_base = raw.images_base || "images/";
   const overview_image = raw.overview_image || "narrative-graph.png";
+  const images_version = raw.images_version || "";
   const timeline_start = raw.timeline_start || "2026-07-01";
 
   const imagesBaseUrl = resolveRepoPath(images_base).replace(/\/?$/, "/");
@@ -71,6 +73,7 @@ export async function loadNexusDataConfig() {
     graph,
     images_base,
     overview_image,
+    images_version,
     timeline_start,
     csvUrl: resolveRepoPath(csv),
     graphUrl: resolveRepoPath(graph),

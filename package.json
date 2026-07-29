@@ -1,0 +1,11 @@
+{
+  "name": "nexus-test",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate-report-images": "node scripts/generate-report-images.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.52.0"
+  }
+}

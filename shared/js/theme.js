@@ -36,23 +36,31 @@ export const DULL_PALETTE = [
 ];
 
 export const STANCE_COLORS = {
-  pro_government: "#1B7F5C",
-  pro_cjp: "#94C25E",
+  anti_government: "#D64545",
+  anti_cjp: "#E8853D",
+  anti_e20: "#E8A94A",
+  anti_rha: "#D4B56A",
   neutral_news: "#9AA5B1",
   unclear: "#CBD2DA",
   mixed: "#A8B0BA",
-  anti_cjp: "#E8853D",
-  anti_government: "#D64545",
+  pro_rha: "#B8D4A0",
+  pro_e20: "#A0C878",
+  pro_cjp: "#94C25E",
+  pro_government: "#1B7F5C",
 };
 
 export const STANCE_LABELS = {
-  pro_government: "Pro government",
-  pro_cjp: "Pro CJP",
+  anti_government: "Anti-Government",
+  anti_cjp: "Anti-CJP",
+  anti_e20: "Anti-E20JP",
+  anti_rha: "Anti-RHA",
   neutral_news: "Neutral / news",
   unclear: "Unclear",
   mixed: "Mixed",
-  anti_cjp: "Anti CJP",
-  anti_government: "Anti government",
+  pro_rha: "Pro-RHA",
+  pro_e20: "Pro-E20JP",
+  pro_cjp: "Pro-CJP",
+  pro_government: "Pro-Government",
 };
 
 export const UNKNOWN_STANCE = "unknown";

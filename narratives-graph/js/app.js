@@ -105,6 +105,10 @@ const FAMILY_AURA_STROKE_ALPHA = 0.22;
 const TOPIC_SORT_STANCES_ANTI_FIRST = [
   "anti_government",
   "anti_cjp",
+  "anti_e20",
+  "anti_rha",
+  "pro_rha",
+  "pro_e20",
   "pro_cjp",
   "pro_government",
 ];
@@ -185,9 +189,13 @@ const SETTINGS_DEFAULTS = {
 const STANCE_ORDER_ANTI_FIRST = [
   "anti_government",
   "anti_cjp",
+  "anti_e20",
+  "anti_rha",
   "mixed",
   "unclear",
   "neutral_news",
+  "pro_rha",
+  "pro_e20",
   "pro_cjp",
   "pro_government",
 ];
@@ -199,7 +207,11 @@ function buildDefaultStanceVisibility() {
   const visibleByDefault = new Set([
     "anti_government",
     "anti_cjp",
+    "anti_e20",
+    "anti_rha",
     "neutral_news",
+    "pro_rha",
+    "pro_e20",
     "pro_cjp",
     "pro_government",
   ]);
@@ -276,6 +288,7 @@ const state = {
   height: 0,
   dpr: 1,
   settled: false,
+  captureReady: false,
   sentimentById: null,
   skipFitOnSimEnd: false,
   settleParentIds: null,
@@ -3816,7 +3829,98 @@ function onResize() {
   render();
 }
 
+/** Hide chrome/panel/settings so canvas captures are graph-only. */
+function setCaptureChromeHidden(hidden) {
+  document.body.classList.toggle("nexus-capture", Boolean(hidden));
+  const chrome = document.getElementById("chrome");
+  if (chrome) chrome.hidden = Boolean(hidden);
+  if (settingsEl) {
+    settingsEl.hidden = true;
+    document.body.classList.remove("settings-open");
+  }
+  if (panelEl) {
+    panelEl.hidden = true;
+    document.body.classList.remove("panel-open");
+  }
+  overviewToggle?.setAttribute("aria-expanded", "false");
+  overviewToggle?.classList.remove("is-active");
+}
+
+function findThemeByName(name) {
+  const needle = String(name || "").trim();
+  if (!needle) return null;
+  return (
+    state.narratives.find((n) => (n.displayLabel || "").trim() === needle) ||
+    state.narratives.find((n) => (n.rawId || "").trim() === needle) ||
+    null
+  );
+}
+
+function installCaptureApi() {
+  window.__nexusCapture = {
+    get ready() {
+      return state.captureReady === true;
+    },
+    get settled() {
+      return state.settled === true;
+    },
+    listThemes() {
+      return state.narratives
+        .filter((n) => !isExcluded(n))
+        .map((n) => n.displayLabel || n.rawId);
+    },
+    showStanceColors(on = true) {
+      state.showAllStances = Boolean(on);
+      if (on) state.stanceFilter = null;
+      requestRender();
+    },
+    fitOverview() {
+      setCaptureChromeHidden(true);
+      state.hovered = null;
+      state.selected = null;
+      state.stanceFilter = null;
+      state.showAllStances = true;
+      state.panelMode = "overview";
+      state.panelListQuery = "";
+      const allPosts = uiVisiblePosts(state.posts);
+      applyOverviewStanceHighlights(allPosts);
+      fitGraphToView();
+      requestRender();
+    },
+    focusTheme(name) {
+      const pillar = findThemeByName(name);
+      if (!pillar) {
+        throw new Error(`Theme not found: ${name}`);
+      }
+      setCaptureChromeHidden(true);
+      state.hovered = null;
+      state.stanceFilter = null;
+      state.showAllStances = true;
+      state.panelMode = "detail";
+      state.panelListQuery = "";
+      state.selected = pillar;
+      const topics = getTopicsForPillar(pillar);
+      const allPosts = uiVisiblePosts(getAllPostsForPillar(pillar));
+      const filteredPosts = applyStanceFilterHighlights(pillar, allPosts, topics);
+      const listedTopics = sortTopicsByPoliticalStance(topics).filter(
+        (t) => postsMatchingStance(getAllPostsForTopic(t), state.stanceFilter).length > 0
+      );
+      focusNodes([pillar, ...listedTopics, ...filteredPosts]);
+      requestRender();
+    },
+    toPngDataUrl() {
+      return new Promise((resolve) => {
+        requestAnimationFrame(() => {
+          render();
+          resolve(canvas.toDataURL("image/png"));
+        });
+      });
+    },
+  };
+}
+
 async function init() {
+  installCaptureApi();
   resizeCanvas();
   setupZoom();
   setupHoverAndClick();
@@ -3852,6 +3956,7 @@ async function init() {
     refreshVisiblePostCounts();
     seedPositions();
     startSimulation();
+    state.captureReady = true;
     render();
   } catch (err) {
     console.error(err);

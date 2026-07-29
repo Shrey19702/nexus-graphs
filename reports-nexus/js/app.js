@@ -31,6 +31,8 @@ export async function init() {
   const graphUrl = dataConfig.graphUrl;
   const imagesBase = dataConfig.imagesBaseUrl || IMAGES_BASE;
   const overviewImage = dataConfig.overview_image || OVERVIEW_IMAGE;
+  // Bust browser cache when generate-report-images updates PNGs (same filenames).
+  const imageCacheKey = dataConfig.images_version || String(Date.now());
   const timelineStart = dataConfig.timeline_start || TIMELINE_START_DAY;
 
   setStatus(statusEl, "Loading data…");
@@ -46,6 +48,7 @@ export async function init() {
   const model = buildReportModel(rows, graph, { timelineStart });
   model.imagesBase = imagesBase;
   model.overviewImage = overviewImage;
+  model.imageCacheKey = imageCacheKey;
 
   setStatus(statusEl, "Rendering…");
   renderReport(reportEl, model);
@@ -165,6 +168,7 @@ function buildReportModel(rows, graph, { timelineStart = TIMELINE_START_DAY } = 
     timelineWindow,
     imagesBase: IMAGES_BASE,
     overviewImage: OVERVIEW_IMAGE,
+    imageCacheKey: "",
     platforms,
     themes: uniqueThemes.map((name) => {
       const t = themes.get(name);
@@ -270,7 +274,9 @@ function renderReport(root, model) {
       ? model.themes.filter((t) => themesOnly.includes(t.name))
       : model.themes;
     for (const theme of themes) {
-      frag.appendChild(renderThemeSection(theme, model.timelineWindow, model.imagesBase));
+      frag.appendChild(
+        renderThemeSection(theme, model.timelineWindow, model.imagesBase, model.imageCacheKey)
+      );
     }
   }
   root.replaceChildren(frag);
@@ -291,7 +297,7 @@ function renderCover(model) {
       <h1 class="cover-title">THE NEXUS</h1>
     </header>
     <figure class="cover-figure">
-      <img src="${imageUrl(model.imagesBase, model.overviewImage)}" alt="Overall Nexus graph" class="cover-image" />
+      <img src="${imageUrl(model.imagesBase, model.overviewImage, model.imageCacheKey)}" alt="Overall Nexus graph" class="cover-image" />
     </figure>
     <div class="cover-stats">
       <div class="stat">
@@ -344,16 +350,19 @@ function renderCover(model) {
   return section;
 }
 
-function imageUrl(imagesBase, filename) {
+function imageUrl(imagesBase, filename, cacheKey = "") {
   if (!filename) return "";
   // Encode the filename only — keeps `&` etc. safe in HTML src / HTTP paths.
-  return `${imagesBase}${String(filename).split("/").map(encodeURIComponent).join("/")}`;
+  const path = `${imagesBase}${String(filename).split("/").map(encodeURIComponent).join("/")}`;
+  if (!cacheKey) return path;
+  const sep = path.includes("?") ? "&" : "?";
+  return `${path}${sep}v=${encodeURIComponent(cacheKey)}`;
 }
 
-function renderThemeSection(theme, timelineWindow, imagesBase = IMAGES_BASE) {
+function renderThemeSection(theme, timelineWindow, imagesBase = IMAGES_BASE, imageCacheKey = "") {
   const section = el("section", "page page-theme");
   const imgHtml = theme.image
-    ? `<figure class="theme-figure"><img src="${imageUrl(imagesBase, theme.image)}" alt="${escapeHtml(theme.name)} graph" class="theme-image" /></figure>`
+    ? `<figure class="theme-figure"><img src="${imageUrl(imagesBase, theme.image, imageCacheKey)}" alt="${escapeHtml(theme.name)} graph" class="theme-image" /></figure>`
     : "";
 
   const topicsList = theme.topics

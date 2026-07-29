@@ -39,6 +39,18 @@ timeline_start: "2026-07-01"
 | `images/narrative-graph.png` | Cover overview image |
 | `images/*.png` | Per-theme images |
 
+### Regenerate graph images
+
+After swapping CSV/graph (or when themes change), regenerate overview + per-theme PNGs from the live narratives-graph simulation:
+
+```bash
+npm i
+npx playwright install chromium
+npm run generate-report-images
+```
+
+This writes into `images/`, updates `overview_image` target from YAML, syncs `THEME_IMAGE` in [`js/constants.js`](js/constants.js) (including any new themes), and bumps `images_version` so the report does not show stale cached PNGs.
+
 ## Report contents
 
 1. **THE NEXUS** — overview image, total posts, themes list, overall sentiment, overall timeline, platform donut.

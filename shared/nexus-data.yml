@@ -1,8 +1,9 @@
 # Nexus input data — edit this file when swapping CSV / graph dumps.
 # Paths are relative to the repository root (where you run `python3 -m http.server`).
 
-csv: CJP_Master_Nexus_Input_27_July.csv
-graph: graph2_parent_topic_topic_27_07.json
+csv: CJP_Master_Nexus_Input_29_July.csv
+graph: graph2_parent_topic_topic_29_07.json
 images_base: images/
 overview_image: narrative-graph-fixed.png
+images_version: "1785344747805"
 timeline_start: "2026-07-01"

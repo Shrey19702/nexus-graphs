@@ -79,9 +79,13 @@ const CATEGORY_LABELS = {
 const STANCE_ORDER = [
   "pro_government",
   "pro_cjp",
+  "pro_e20",
+  "pro_rha",
   "neutral_news",
   "unclear",
   "mixed",
+  "anti_rha",
+  "anti_e20",
   "anti_cjp",
   "anti_government",
 ];
