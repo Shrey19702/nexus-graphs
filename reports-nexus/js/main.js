@@ -1,4 +1,4 @@
-import { init } from "./app.js?v=2026-07-27-image-aspect";
+import { init } from "./app.js?v=2026-07-30-e20jp";
 
 init().catch((err) => {
   console.error(err);

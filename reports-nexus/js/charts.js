@@ -7,7 +7,7 @@ import {
   PLATFORM_ORDER,
   PLATFORM_LABELS,
   PLATFORM_COLORS,
-} from "./constants.js";
+} from "./constants.js?v=2026-07-30-e20jp";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

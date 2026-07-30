@@ -15,9 +15,10 @@ import {
   hexToRgba,
   stanceColor,
   stanceKey,
-} from "../../shared/js/theme.js";
-import { parseCsv } from "../../shared/js/csv.js";
-import { loadNexusDataConfig } from "../../shared/js/data-config.js";
+  normalizeStance,
+} from "../../shared/js/theme.js?v=2026-07-30-e20jp";
+import { parseCsv } from "../../shared/js/csv.js?v=2026-07-30-e20jp";
+import { loadNexusDataConfig } from "../../shared/js/data-config.js?v=2026-07-30-e20jp";
 import {
   getDims,
   resizeCanvas as sharedResizeCanvas,
@@ -27,18 +28,18 @@ import {
   drawNodeCircle as sharedDrawNodeCircle,
   panelBleedWidth as sharedPanelBleedWidth,
   settingsBleedWidth as sharedSettingsBleedWidth,
-} from "../../shared/js/canvas.js";
+} from "../../shared/js/canvas.js?v=2026-07-30-e20jp";
 import {
   typeRepel,
   typeCollide,
   forceForeignClusterRepel,
-} from "../../shared/js/force-utils.js";
+} from "../../shared/js/force-utils.js?v=2026-07-30-e20jp";
 import {
   appendField as sharedAppendField,
   makeValue as sharedMakeValue,
   makeLink as sharedMakeLink,
   makeStanceBadge as sharedMakeStanceBadge,
-} from "../../shared/js/panel-primitives.js";
+} from "../../shared/js/panel-primitives.js?v=2026-07-30-e20jp";
 
 
 // Shared structural colors (Nexus Civic Signal theme)
@@ -105,10 +106,10 @@ const FAMILY_AURA_STROKE_ALPHA = 0.22;
 const TOPIC_SORT_STANCES_ANTI_FIRST = [
   "anti_government",
   "anti_cjp",
-  "anti_e20",
+  "anti_e20_jp",
   "anti_rha",
   "pro_rha",
-  "pro_e20",
+  "pro_e20_jp",
   "pro_cjp",
   "pro_government",
 ];
@@ -189,13 +190,13 @@ const SETTINGS_DEFAULTS = {
 const STANCE_ORDER_ANTI_FIRST = [
   "anti_government",
   "anti_cjp",
-  "anti_e20",
+  "anti_e20_jp",
   "anti_rha",
   "mixed",
   "unclear",
   "neutral_news",
   "pro_rha",
-  "pro_e20",
+  "pro_e20_jp",
   "pro_cjp",
   "pro_government",
 ];
@@ -207,11 +208,11 @@ function buildDefaultStanceVisibility() {
   const visibleByDefault = new Set([
     "anti_government",
     "anti_cjp",
-    "anti_e20",
+    "anti_e20_jp",
     "anti_rha",
     "neutral_news",
     "pro_rha",
-    "pro_e20",
+    "pro_e20_jp",
     "pro_cjp",
     "pro_government",
   ]);
@@ -449,7 +450,7 @@ function attachSentiment(records) {
     }
     matched += 1;
     n.sentiment = row;
-    n.stance = row.stance || null;
+    n.stance = normalizeStance(row.stance) || row.stance || null;
     const idx = activeStanceOrder().indexOf(n.stance);
     n.stanceIndex = idx >= 0 ? idx : activeStanceOrder().length;
     n.postedAt = parsePostedAtMs(row.posted_at);

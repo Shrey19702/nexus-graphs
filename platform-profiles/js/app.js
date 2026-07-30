@@ -15,8 +15,9 @@ import {
   hexToRgba,
   stanceColor,
   stanceKey,
-} from "../../shared/js/theme.js";
-import { parseCsv } from "../../shared/js/csv.js";
+  normalizeStance,
+} from "../../shared/js/theme.js?v=2026-07-30-e20jp";
+import { parseCsv } from "../../shared/js/csv.js?v=2026-07-30-e20jp";
 import {
   getDims,
   resizeCanvas as sharedResizeCanvas,
@@ -26,18 +27,18 @@ import {
   drawNodeCircle as sharedDrawNodeCircle,
   panelBleedWidth as sharedPanelBleedWidth,
   settingsBleedWidth as sharedSettingsBleedWidth,
-} from "../../shared/js/canvas.js";
+} from "../../shared/js/canvas.js?v=2026-07-30-e20jp";
 import {
   typeRepel,
   typeCollide,
   forceForeignClusterRepel,
-} from "../../shared/js/force-utils.js";
+} from "../../shared/js/force-utils.js?v=2026-07-30-e20jp";
 import {
   appendField as sharedAppendField,
   makeValue as sharedMakeValue,
   makeLink as sharedMakeLink,
   makeStanceBadge as sharedMakeStanceBadge,
-} from "../../shared/js/panel-primitives.js";
+} from "../../shared/js/panel-primitives.js?v=2026-07-30-e20jp";
 
 
 // Shared structural colors (Nexus Civic Signal theme)
@@ -79,13 +80,13 @@ const CATEGORY_LABELS = {
 const STANCE_ORDER = [
   "pro_government",
   "pro_cjp",
-  "pro_e20",
+  "pro_e20_jp",
   "pro_rha",
   "neutral_news",
   "unclear",
   "mixed",
   "anti_rha",
-  "anti_e20",
+  "anti_e20_jp",
   "anti_cjp",
   "anti_government",
 ];
@@ -330,7 +331,7 @@ function attachPostsToProfiles(records) {
     if (n.type !== "regular_node") continue;
     const rows = byProfile.get(normalizeProfileUrl(n.rawId)) || [];
     n.posts = rows.map((row, i) => {
-      const stance = row.stance || null;
+      const stance = normalizeStance(row.stance) || row.stance || null;
       const idx = STANCE_ORDER.indexOf(stance);
       return {
         id: `post:${row.post_id || i}:${n.id}`,

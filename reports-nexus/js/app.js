@@ -11,14 +11,14 @@ import {
   IMAGES_BASE,
   TIMELINE_START_DAY,
   timelineEndDay,
-} from "./constants.js?v=2026-07-27-image-aspect";
+} from "./constants.js?v=2026-07-30-e20jp";
 import {
   daysForSeriesBucket,
   renderStackedTimeline,
   renderPlatformDonut,
   stanceLegendHtml,
   formatDayLabel,
-} from "./charts.js";
+} from "./charts.js?v=2026-07-30-e20jp";
 
 export async function init() {
   const statusEl = document.getElementById("status");
@@ -236,7 +236,10 @@ function maxDay(current, day) {
 
 function normalizeStance(raw) {
   const s = (raw || "").trim();
-  if (STANCE_ORDER.includes(s)) return s;
+  if (!s) return null;
+  const aliases = { anti_e20: "anti_e20_jp", pro_e20: "pro_e20_jp" };
+  const canonical = aliases[s] || s;
+  if (STANCE_ORDER.includes(canonical)) return canonical;
   return null;
 }
 

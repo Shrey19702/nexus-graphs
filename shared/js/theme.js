@@ -38,13 +38,13 @@ export const DULL_PALETTE = [
 export const STANCE_COLORS = {
   anti_government: "#D64545",
   anti_cjp: "#E8853D",
-  anti_e20: "#E8A94A",
+  anti_e20_jp: "#E8A94A",
   anti_rha: "#D4B56A",
   neutral_news: "#9AA5B1",
   unclear: "#CBD2DA",
   mixed: "#A8B0BA",
   pro_rha: "#B8D4A0",
-  pro_e20: "#A0C878",
+  pro_e20_jp: "#A0C878",
   pro_cjp: "#94C25E",
   pro_government: "#1B7F5C",
 };
@@ -52,19 +52,32 @@ export const STANCE_COLORS = {
 export const STANCE_LABELS = {
   anti_government: "Anti-Government",
   anti_cjp: "Anti-CJP",
-  anti_e20: "Anti-E20JP",
+  anti_e20_jp: "Anti-E20JP",
   anti_rha: "Anti-RHA",
   neutral_news: "Neutral / news",
   unclear: "Unclear",
   mixed: "Mixed",
   pro_rha: "Pro-RHA",
-  pro_e20: "Pro-E20JP",
+  pro_e20_jp: "Pro-E20JP",
   pro_cjp: "Pro-CJP",
   pro_government: "Pro-Government",
 };
 
 export const UNKNOWN_STANCE = "unknown";
 export const BLAND_GREY = "#E9ECF0";
+
+/** Map legacy / alternate CSV keys onto the canonical stance ids. */
+const STANCE_ALIASES = {
+  anti_e20: "anti_e20_jp",
+  pro_e20: "pro_e20_jp",
+};
+
+export function normalizeStance(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return null;
+  const canonical = STANCE_ALIASES[s] || s;
+  return STANCE_COLORS[canonical] ? canonical : null;
+}
 
 export function darkenHex(hex, amount = 0.22) {
   const n = hex.replace("#", "");
@@ -93,12 +106,12 @@ export function hexToRgba(hex, alpha) {
 }
 
 export function stanceColor(stance) {
-  if (!stance || stance === UNKNOWN_STANCE) return BLAND_GREY;
-  return STANCE_COLORS[stance] || BLAND_GREY;
+  const key = normalizeStance(stance);
+  if (!key || key === UNKNOWN_STANCE) return BLAND_GREY;
+  return STANCE_COLORS[key] || BLAND_GREY;
 }
 
 export function stanceKey(post) {
-  const s = post?.stance || post?.sentiment?.stance;
-  if (s && STANCE_COLORS[s]) return s;
-  return UNKNOWN_STANCE;
+  const raw = post?.stance || post?.sentiment?.stance;
+  return normalizeStance(raw) || UNKNOWN_STANCE;
 }
