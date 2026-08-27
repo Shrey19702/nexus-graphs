@@ -5,6 +5,12 @@ node_modules/
 # Archived superseded sheets / graphs
 /old-data/
 
+# Scratch / non-app assets (do not ship)
+*.bak
+*.pdf
+*.pre_enrich.csv
+**/*.pre_enrich.csv
+
 # Unused root data copies (apps load files from their own folders)
 /14jul-nexus-data-with-stance.csv
 /15jul-narrative-graph.json

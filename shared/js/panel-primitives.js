@@ -29,11 +29,16 @@ export function makeLink(href, label) {
   return a;
 }
 
-export function makeStanceBadge(stance, { stanceColor, stanceLabels, stanceColors, unknownStance }) {
+export function makeStanceBadge(stance, { stanceColor, stanceLabel, stanceLabels, unknownStance }) {
   const el = document.createElement("span");
   el.className = "stance-badge";
-  const key = stance && stanceColors[stance] ? stance : unknownStance;
+  const isUnknown = !stance || stance === unknownStance;
+  const key = isUnknown ? unknownStance : stance;
   el.style.setProperty("--stance-color", stanceColor(key));
-  el.textContent = key === unknownStance ? "No sentiment" : (stanceLabels[key] || key);
+  el.textContent = isUnknown
+    ? "No sentiment"
+    : stanceLabel
+      ? stanceLabel(key)
+      : (stanceLabels?.[key] || key);
   return el;
 }

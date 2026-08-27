@@ -6,8 +6,6 @@
  */
 import {
   COLORS_BASE,
-  STANCE_COLORS,
-  STANCE_LABELS,
   UNKNOWN_STANCE,
   BLAND_GREY,
   darkenHex,
@@ -15,8 +13,10 @@ import {
   hexToRgba,
   stanceColor,
   stanceKey,
+  stanceLabel,
   normalizeStance,
-} from "../../shared/js/theme.js?v=2026-07-30-e20jp";
+  orderStances,
+} from "../../shared/js/theme.js?v=2026-08-21-anti-orange";
 import { parseCsv } from "../../shared/js/csv.js?v=2026-07-30-e20jp";
 import {
   getDims,
@@ -77,23 +77,7 @@ const CATEGORY_LABELS = {
   general: "General",
 };
 
-const STANCE_ORDER = [
-  "pro_government",
-  "pro_cjp",
-  "pro_e20_jp",
-  "pro_rha",
-  "neutral_news",
-  "unclear",
-  "mixed",
-  "anti_rha",
-  "anti_e20_jp",
-  "anti_cjp",
-  "anti_government",
-];
-// STANCE_COLORS from shared/theme.js
-// STANCE_LABELS from shared/theme.js
-// UNKNOWN_STANCE from shared/theme.js
-// BLAND_GREY from shared/theme.js
+// Stance axis discovered from the loaded CSV (see applyCorpusStances).
 const POST_R = 3.25;
 // Gap between profile disc and first hex post lane (mirrors topic-graph LINK_GAP)
 const POST_ORBIT_GAP = 1.25;
@@ -171,7 +155,37 @@ const state = {
   focusPosts: null,
   postsAnimating: false,
   renderFrame: null,
+  corpusStances: [],
 };
+
+function corpusStanceOrder() {
+  return Array.isArray(state.corpusStances) ? state.corpusStances : [];
+}
+
+function applyCorpusStances(records) {
+  const found = new Set();
+  for (const row of records || []) {
+    const key = normalizeStance(row.stance);
+    if (key) found.add(key);
+  }
+  forEachPost((post) => {
+    if (post.stance) found.add(post.stance);
+  });
+  state.corpusStances = orderStances([...found]);
+  reindexPostStances();
+}
+
+function reindexPostStances() {
+  const order = corpusStanceOrder();
+  forEachPost((post) => {
+    if (!post.stance) {
+      post.stanceIndex = order.length;
+      return;
+    }
+    const idx = order.indexOf(post.stance);
+    post.stanceIndex = idx >= 0 ? idx : order.length;
+  });
+}
 
 let zoomBehavior = null;
 let pointerDown = null;
@@ -216,8 +230,7 @@ function makeLink(href, label) {
 function makeStanceBadge(stance) {
   return sharedMakeStanceBadge(stance, {
     stanceColor,
-    stanceLabels: STANCE_LABELS,
-    stanceColors: STANCE_COLORS,
+    stanceLabel,
     unknownStance: UNKNOWN_STANCE,
   });
 }
@@ -332,7 +345,6 @@ function attachPostsToProfiles(records) {
     const rows = byProfile.get(normalizeProfileUrl(n.rawId)) || [];
     n.posts = rows.map((row, i) => {
       const stance = normalizeStance(row.stance) || row.stance || null;
-      const idx = STANCE_ORDER.indexOf(stance);
       return {
         id: `post:${row.post_id || i}:${n.id}`,
         rawId: String(row.post_id || ""),
@@ -340,7 +352,7 @@ function attachPostsToProfiles(records) {
         profileId: n.id,
         sentiment: row,
         stance,
-        stanceIndex: idx >= 0 ? idx : STANCE_ORDER.length,
+        stanceIndex: 0,
         displayLabel: row.content_snippet || String(row.post_id || "Post"),
         radius: POST_R,
         x: null,
@@ -352,6 +364,7 @@ function attachPostsToProfiles(records) {
       matchedPosts += n.posts.length;
     }
   }
+  applyCorpusStances(records);
   console.info(
     `Sentiment linked ${matchedPosts} posts to ${matchedProfiles} profiles (${byPostId.size} CSV rows)`
   );
@@ -381,7 +394,9 @@ function layoutPostsAroundProfile(profile, { immediate = true } = {}) {
     if (!buckets.has(key)) buckets.set(key, []);
     buckets.get(key).push(post);
   }
-  const order = [...STANCE_ORDER, UNKNOWN_STANCE].filter((k) => buckets.has(k));
+  const order = [...corpusStanceOrder(), UNKNOWN_STANCE].filter((k) =>
+    buckets.has(k)
+  );
   const spacing = POST_R * 2 + 2.5;
   const bodyR = profile.radius || settings.profileSize;
   const innerRadius = bodyR + POST_ORBIT_GAP + POST_R;
@@ -501,25 +516,25 @@ function isPostInFocus(post) {
 }
 
 function computeStanceDistribution(posts) {
+  const keys = [...corpusStanceOrder(), UNKNOWN_STANCE];
   const counts = Object.create(null);
-  for (const key of STANCE_ORDER) counts[key] = 0;
-  counts[UNKNOWN_STANCE] = 0;
+  for (const key of keys) counts[key] = 0;
   for (const p of posts) {
     const key = stanceKey(p);
-    counts[key] = (counts[key] || 0) + 1;
+    if (!(key in counts)) counts[key] = 0;
+    counts[key] += 1;
   }
   const total = posts.length;
   const entries = [];
-  for (const key of [...STANCE_ORDER, UNKNOWN_STANCE]) {
+  for (const key of keys) {
     const postCount = counts[key] || 0;
-    if (!postCount && key === UNKNOWN_STANCE) continue;
     if (!postCount) continue;
     entries.push({
       stance: key,
       post_count: postCount,
       percentage: total ? Math.round((postCount / total) * 10000) / 100 : 0,
       color: stanceColor(key),
-      label: key === UNKNOWN_STANCE ? "No sentiment" : STANCE_LABELS[key] || key,
+      label: stanceLabel(key),
     });
   }
   return { total, entries };
@@ -1918,7 +1933,7 @@ function render() {
       width = focusing && inFocus ? 1.35 : 0.9;
     }
     const sk = stanceKey(post);
-    const hasStance = sk && sk !== UNKNOWN_STANCE && STANCE_COLORS[sk];
+    const hasStance = sk && sk !== UNKNOWN_STANCE;
     const spokeColor = showStance
       ? hasStance
         ? stanceColor(sk)
@@ -1967,7 +1982,7 @@ function render() {
     const inFocus = isPostInFocus(post);
     const sk = stanceKey(post);
     const sc = stanceColor(sk);
-    const hasStance = sk && sk !== UNKNOWN_STANCE && STANCE_COLORS[sk];
+    const hasStance = sk && sk !== UNKNOWN_STANCE;
     const selectedPost = state.selected?.type === "post" && state.selected.id === post.id;
     const showStance = selectedPost || (profileFocus && inFocus);
     const r = selectedPost ? POST_R + 2 : showStance ? POST_R + 1.25 : POST_R;
@@ -2086,7 +2101,7 @@ function drawHoverTooltip(n) {
   } else if (n.type === "post") {
     const bits = [n.rawId || "Post"];
     const sk = stanceKey(n);
-    if (sk !== UNKNOWN_STANCE) bits.push(STANCE_LABELS[sk] || sk);
+    if (sk !== UNKNOWN_STANCE) bits.push(stanceLabel(sk));
     text = bits.join(" · ");
   }
   ctx.save();

@@ -1,0 +1,17 @@
+{
+  "overview": "narrative-graph.png",
+  "version": "1787825557873",
+  "themes": {
+    "Protests and Activism": "protests_n_activism.png",
+    "Political Figures and Parties": "political_figures_n_parties.png",
+    "Sonam Wangchuk's Hunger Strike": "sonam_wangchuk_hunger_strike.png",
+    "Education System and Reforms": "education_system_n_reforms.png",
+    "CJP Movement and Controversies": "cjp_movement_n_controvercies.png",
+    "Social and Cultural Issues": "social_n_cultural_issues.png",
+    "Governance and Policy": "government_n_policy.png",
+    "Legal and Judicial Matters": "legal_n_judcial_matters.png",
+    "E20 Janta Party & Fuel Choice Movement": "E20_Janta_Party_and_Fuel_Choice_Movement.png",
+    "Reservation Hatao Movement": "Reservation_Hatao_Movement.png",
+    "Post-Resignation Education Ministry Developments": "Post_Resignation_Education_Ministry_Developments.png"
+  }
+}

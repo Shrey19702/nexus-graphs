@@ -35,11 +35,22 @@ export const DULL_PALETTE = [
   "#708890",
 ];
 
+/**
+ * Optional stable colors for known stance ids.
+ * anti_government stays red; every other anti_* uses orange / amber / mustard
+ * so it does not collide with government-red on the graph.
+ * Unknown ids still get a color from the anti / pro / neutral palettes below —
+ * graph and report axes are always discovered from the CSV.
+ */
 export const STANCE_COLORS = {
-  anti_government: "#D64545",
-  anti_cjp: "#E8853D",
-  anti_e20_jp: "#E8A94A",
-  anti_rha: "#D4B56A",
+  anti_government: "#C44B4B",
+  anti_india: "#E07020",
+  anti_cjp: "#F08A24",
+  anti_stk: "#E5A012",
+  anti_dnp: "#D97706",
+  anti_e20_jp: "#E8C547",
+  anti_rha: "#C9A227",
+  neutral: "#9AA5B1",
   neutral_news: "#9AA5B1",
   unclear: "#CBD2DA",
   mixed: "#A8B0BA",
@@ -47,13 +58,18 @@ export const STANCE_COLORS = {
   pro_e20_jp: "#A0C878",
   pro_cjp: "#94C25E",
   pro_government: "#1B7F5C",
+  pro_china: "#3B6FBF",
 };
 
 export const STANCE_LABELS = {
+  anti_india: "Anti-India",
   anti_government: "Anti-Government",
   anti_cjp: "Anti-CJP",
+  anti_stk: "Anti-STK",
+  anti_dnp: "Anti-DNP",
   anti_e20_jp: "Anti-E20JP",
   anti_rha: "Anti-RHA",
+  neutral: "Neutral",
   neutral_news: "Neutral / news",
   unclear: "Unclear",
   mixed: "Mixed",
@@ -61,22 +77,94 @@ export const STANCE_LABELS = {
   pro_e20_jp: "Pro-E20JP",
   pro_cjp: "Pro-CJP",
   pro_government: "Pro-Government",
+  pro_china: "Pro-China",
 };
 
 export const UNKNOWN_STANCE = "unknown";
 export const BLAND_GREY = "#E9ECF0";
 
-/** Map legacy / alternate CSV keys onto the canonical stance ids. */
+/**
+ * Orange / yellow / mustard only — never red/rose (reserved for anti_government).
+ * Used for unrecognized anti_* keys.
+ */
+const ANTI_FALLBACK_PALETTE = [
+  "#F08A24",
+  "#E5A012",
+  "#D97706",
+  "#E8C547",
+  "#C96A1A",
+  "#C9A227",
+];
+
+/** Greens / teals for unrecognized pro_* keys. */
+const PRO_FALLBACK_PALETTE = [
+  "#1B7F5C",
+  "#3B8F5C",
+  "#94C25E",
+  "#2A7A8C",
+  "#5A9E6E",
+  "#3B6FBF",
+];
+
+const OTHER_FALLBACK_PALETTE = [
+  "#7C6A5A",
+  "#5A6B7C",
+  "#6A7C5A",
+  "#7A5A6B",
+  "#5A7C74",
+  "#7C725A",
+];
+
+const NEUTRAL_STANCE_RE = /^(neutral|neutral_news|news|unclear|mixed)$/i;
+
+/** Map legacy / alternate CSV keys onto canonical stance ids. */
 const STANCE_ALIASES = {
   anti_e20: "anti_e20_jp",
   pro_e20: "pro_e20_jp",
+  news: "neutral",
 };
 
 export function normalizeStance(raw) {
   const s = String(raw || "").trim();
   if (!s) return null;
-  const canonical = STANCE_ALIASES[s] || s;
-  return STANCE_COLORS[canonical] ? canonical : null;
+  return STANCE_ALIASES[s] || s;
+}
+
+export function stanceLabel(key) {
+  if (!key || key === UNKNOWN_STANCE) return "No sentiment";
+  if (STANCE_LABELS[key]) return STANCE_LABELS[key];
+  return String(key)
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join("-");
+}
+
+/** anti_* → neutral/mixed → pro_* → other, then alpha. */
+export function orderStances(keys) {
+  const unique = [...new Set((keys || []).filter(Boolean))];
+  unique.sort((a, b) => {
+    const ra = stanceAxisRank(a);
+    const rb = stanceAxisRank(b);
+    return ra - rb || a.localeCompare(b);
+  });
+  return unique;
+}
+
+function stanceAxisRank(key) {
+  const k = String(key || "");
+  if (k.startsWith("anti_")) return 0;
+  if (NEUTRAL_STANCE_RE.test(k)) return 1;
+  if (k.startsWith("pro_")) return 2;
+  return 3;
+}
+
+function hashString(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i += 1) {
+    h = (h * 31 + s.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
 }
 
 export function darkenHex(hex, amount = 0.22) {
@@ -108,7 +196,17 @@ export function hexToRgba(hex, alpha) {
 export function stanceColor(stance) {
   const key = normalizeStance(stance);
   if (!key || key === UNKNOWN_STANCE) return BLAND_GREY;
-  return STANCE_COLORS[key] || BLAND_GREY;
+  if (STANCE_COLORS[key]) return STANCE_COLORS[key];
+
+  const h = hashString(key);
+  if (key.startsWith("anti_")) {
+    return ANTI_FALLBACK_PALETTE[h % ANTI_FALLBACK_PALETTE.length];
+  }
+  if (key.startsWith("pro_")) {
+    return PRO_FALLBACK_PALETTE[h % PRO_FALLBACK_PALETTE.length];
+  }
+  if (NEUTRAL_STANCE_RE.test(key)) return "#9AA5B1";
+  return OTHER_FALLBACK_PALETTE[h % OTHER_FALLBACK_PALETTE.length];
 }
 
 export function stanceKey(post) {

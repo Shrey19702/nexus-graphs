@@ -6,8 +6,6 @@
  */
 import {
   COLORS_BASE,
-  STANCE_COLORS,
-  STANCE_LABELS,
   UNKNOWN_STANCE,
   BLAND_GREY,
   darkenHex,
@@ -15,10 +13,12 @@ import {
   hexToRgba,
   stanceColor,
   stanceKey,
+  stanceLabel,
   normalizeStance,
-} from "../../shared/js/theme.js?v=2026-07-30-e20jp";
-import { parseCsv } from "../../shared/js/csv.js?v=2026-07-30-e20jp";
-import { loadNexusDataConfig } from "../../shared/js/data-config.js?v=2026-07-30-e20jp";
+  orderStances,
+} from "../../shared/js/theme.js?v=2026-08-21-anti-orange";
+import { parseCsv } from "../../shared/js/csv.js?v=2026-08-15-ap";
+import { loadNexusDataConfig } from "../../shared/js/data-config.js?v=2026-08-26-hub-images";
 import {
   getDims,
   resizeCanvas as sharedResizeCanvas,
@@ -28,18 +28,18 @@ import {
   drawNodeCircle as sharedDrawNodeCircle,
   panelBleedWidth as sharedPanelBleedWidth,
   settingsBleedWidth as sharedSettingsBleedWidth,
-} from "../../shared/js/canvas.js?v=2026-07-30-e20jp";
+} from "../../shared/js/canvas.js?v=2026-08-15-ap";
 import {
   typeRepel,
   typeCollide,
   forceForeignClusterRepel,
-} from "../../shared/js/force-utils.js?v=2026-07-30-e20jp";
+} from "../../shared/js/force-utils.js?v=2026-08-15-ap";
 import {
   appendField as sharedAppendField,
   makeValue as sharedMakeValue,
   makeLink as sharedMakeLink,
   makeStanceBadge as sharedMakeStanceBadge,
-} from "../../shared/js/panel-primitives.js?v=2026-07-30-e20jp";
+} from "../../shared/js/panel-primitives.js?v=2026-08-15-ap";
 
 
 // Shared structural colors (Nexus Civic Signal theme)
@@ -102,19 +102,6 @@ const GRID_DOT_ALPHA = 0.16;
 // Soft family territory discs behind each parent cluster
 const FAMILY_AURA_ALPHA = 0.11;
 const FAMILY_AURA_STROKE_ALPHA = 0.22;
-// Political axis used to order topics in the theme panel (anti → pro default)
-const TOPIC_SORT_STANCES_ANTI_FIRST = [
-  "anti_government",
-  "anti_cjp",
-  "anti_e20_jp",
-  "anti_rha",
-  "pro_rha",
-  "pro_e20_jp",
-  "pro_cjp",
-  "pro_government",
-];
-const TOPIC_SORT_STANCES_PRO_FIRST = [...TOPIC_SORT_STANCES_ANTI_FIRST].reverse();
-
 
 function resizeCanvas() {
   sharedResizeCanvas(canvas, ctx, state);
@@ -155,22 +142,24 @@ function makeLink(href, label) {
 function makeStanceBadge(stance) {
   return sharedMakeStanceBadge(stance, {
     stanceColor,
-    stanceLabels: STANCE_LABELS,
-    stanceColors: STANCE_COLORS,
+    stanceLabel,
     unknownStance: UNKNOWN_STANCE,
   });
 }
 
+function corpusStanceOrder() {
+  return Array.isArray(state?.corpusStances) ? state.corpusStances : [];
+}
+
 function activeTopicSortStances() {
-  return settings.reverseStanceSort
-    ? TOPIC_SORT_STANCES_PRO_FIRST
-    : TOPIC_SORT_STANCES_ANTI_FIRST;
+  const keys = corpusStanceOrder().filter((k) => /^(anti_|pro_)/.test(k));
+  return settings.reverseStanceSort ? [...keys].reverse() : keys;
 }
 const GOLDEN_ANGLE = 2.399963229728653;
 const CLICK_MOVE_PX = 5;
 /** Fallbacks if shared/nexus-data.yml cannot be loaded. */
-const DATA_FILE_FALLBACK = "graph2_parent_topic_topic_23_07.json";
-const SENTIMENT_FILE_FALLBACK = "CJP_Master_Nexus_Input_23_July.csv";
+const DATA_FILE_FALLBACK = "/stk_data/graph2_parent_topic_topic_19_21_Aug.json";
+const SENTIMENT_FILE_FALLBACK = "/stk_data/STK_Master_Nexus_Input.csv";
 let DATA_FILE = DATA_FILE_FALLBACK;
 let SENTIMENT_FILE = SENTIMENT_FILE_FALLBACK;
 document.title = "Themes";
@@ -186,38 +175,13 @@ const SETTINGS_DEFAULTS = {
   reverseStanceSort: false,
 };
 
-// Stance axis (anti → pro by default; toggle reverses for panels, lists, and packing)
-const STANCE_ORDER_ANTI_FIRST = [
-  "anti_government",
-  "anti_cjp",
-  "anti_e20_jp",
-  "anti_rha",
-  "mixed",
-  "unclear",
-  "neutral_news",
-  "pro_rha",
-  "pro_e20_jp",
-  "pro_cjp",
-  "pro_government",
-];
-const STANCE_ORDER_PRO_FIRST = [...STANCE_ORDER_ANTI_FIRST].reverse();
+// Stance axis is discovered from the CSV after load (anti → neutral → pro).
 // UNKNOWN_STANCE from shared/theme.js
 
 function buildDefaultStanceVisibility() {
   const map = Object.create(null);
-  const visibleByDefault = new Set([
-    "anti_government",
-    "anti_cjp",
-    "anti_e20_jp",
-    "anti_rha",
-    "neutral_news",
-    "pro_rha",
-    "pro_e20_jp",
-    "pro_cjp",
-    "pro_government",
-  ]);
-  for (const key of [...STANCE_ORDER_ANTI_FIRST, UNKNOWN_STANCE]) {
-    map[key] = visibleByDefault.has(key);
+  for (const key of [...corpusStanceOrder(), UNKNOWN_STANCE]) {
+    map[key] = key !== UNKNOWN_STANCE;
   }
   return map;
 }
@@ -234,14 +198,14 @@ function stanceVisibilityDiffersFromDefault() {
 
 const settings = {
   ...SETTINGS_DEFAULTS,
-  stanceVisibility: buildDefaultStanceVisibility(),
+  stanceVisibility: Object.create(null),
 };
 
 function activeStanceOrder() {
-  return settings.reverseStanceSort ? STANCE_ORDER_PRO_FIRST : STANCE_ORDER_ANTI_FIRST;
+  const base = corpusStanceOrder();
+  return settings.reverseStanceSort ? [...base].reverse() : base;
 }
-// STANCE_COLORS from shared/theme.js
-// STANCE_LABELS from shared/theme.js
+// Stance colors/labels from shared/theme.js (axis discovered from CSV)
 // BLAND_GREY from shared/theme.js
 
 const canvas = document.getElementById("graph");
@@ -299,6 +263,7 @@ const state = {
   dateToMs: null,
   postedAtMinMs: null,
   postedAtMaxMs: null,
+  corpusStances: [],
   visiblePostCountsByTopic: new Map(),
   visiblePostCountsByNarrative: new Map(),
 };
@@ -461,8 +426,24 @@ function attachSentiment(records) {
   }
   state.postedAtMinMs = minMs;
   state.postedAtMaxMs = maxMs;
+  applyCorpusStances(records);
   syncDateFilterBounds();
   console.info(`Sentiment matched ${matched} / ${byPostId.size} CSV rows to graph posts`);
+}
+
+function applyCorpusStances(records) {
+  const found = new Set();
+  for (const row of records || []) {
+    const key = normalizeStance(row.stance);
+    if (key) found.add(key);
+  }
+  for (const n of state.posts) {
+    if (n.stance) found.add(n.stance);
+  }
+  state.corpusStances = orderStances([...found]);
+  settings.stanceVisibility = buildDefaultStanceVisibility();
+  buildStanceVisibilityControls();
+  reindexPostStances();
 }
 
 function computeStanceDistribution(posts) {
@@ -485,7 +466,7 @@ function computeStanceDistribution(posts) {
       post_count: postCount,
       percentage: total ? Math.round((postCount / total) * 10000) / 100 : 0,
       color: stanceColor(key),
-      label: key === UNKNOWN_STANCE ? "No sentiment" : (STANCE_LABELS[key] || key),
+      label: stanceLabel(key),
     });
   }
   return { total, entries };
@@ -1622,7 +1603,10 @@ function getPostsForParent(parent) {
 }
 
 function isStanceVisible(stance) {
-  const key = stance && STANCE_COLORS[stance] ? stance : UNKNOWN_STANCE;
+  const key =
+    stance && (stance === UNKNOWN_STANCE || corpusStanceOrder().includes(stance))
+      ? stance
+      : UNKNOWN_STANCE;
   return settings.stanceVisibility[key] !== false;
 }
 
@@ -2100,7 +2084,7 @@ function buildStanceVisibilityControls() {
   const root = document.getElementById("stance-visibility");
   if (!root) return;
   root.replaceChildren();
-  for (const key of [...STANCE_ORDER_ANTI_FIRST, UNKNOWN_STANCE]) {
+  for (const key of [...activeStanceOrder(), UNKNOWN_STANCE]) {
     const label = document.createElement("label");
     label.className = "setting-check stance-visibility-row";
     const input = document.createElement("input");
@@ -2117,8 +2101,7 @@ function buildStanceVisibilityControls() {
     swatch.className = "stance-swatch";
     swatch.style.background = stanceColor(key);
     const text = document.createElement("span");
-    text.textContent =
-      key === UNKNOWN_STANCE ? "No sentiment" : STANCE_LABELS[key] || key;
+    text.textContent = stanceLabel(key);
     label.appendChild(input);
     label.appendChild(swatch);
     label.appendChild(text);
@@ -2872,7 +2855,7 @@ function openNarrativePanel(pillar, { keepFilter = false } = {}) {
         t.rawId,
         t.label,
         meta.dominant,
-        meta.dominant ? STANCE_LABELS[meta.dominant] : "",
+        meta.dominant ? stanceLabel(meta.dominant) : "",
       ]
         .filter(Boolean)
         .join(" ")
@@ -2884,7 +2867,7 @@ function openNarrativePanel(pillar, { keepFilter = false } = {}) {
       const matching = postsMatchingStance(meta.posts, state.stanceFilter);
       const postCount = matching.length;
       const stanceHint = meta.dominant
-        ? `${STANCE_LABELS[meta.dominant] || meta.dominant} · ${meta.dominantCount}`
+        ? `${stanceLabel(meta.dominant)} · ${meta.dominantCount}`
         : "No political sentiment";
       wrap.appendChild(
         makeNavCard({
@@ -3313,7 +3296,7 @@ function render() {
     const dimmed = focusing && !selected;
     const sk = stanceKey(n);
     const sc = stanceColor(sk);
-    const hasStance = sk && sk !== UNKNOWN_STANCE && STANCE_COLORS[sk];
+    const hasStance = sk && sk !== UNKNOWN_STANCE;
     const showStance =
       stanceHighlight &&
       selected &&
@@ -3933,6 +3916,12 @@ async function init() {
       const dataConfig = await loadNexusDataConfig();
       DATA_FILE = dataConfig.graphUrl;
       SENTIMENT_FILE = dataConfig.csvUrl;
+      document.title = `Themes · ${dataConfig.corpusLabel}`;
+      console.info(
+        `Corpus ${dataConfig.corpusId}: ${dataConfig.csv} + ${dataConfig.graph}` +
+          (dataConfig.hasPostedAt ? "" : " (no posted_at)") +
+          (dataConfig.hasPlatform ? "" : " (no platform column; report may infer from URL)")
+      );
     } catch (configErr) {
       console.warn("Using local data file fallbacks:", configErr);
       DATA_FILE = DATA_FILE_FALLBACK;

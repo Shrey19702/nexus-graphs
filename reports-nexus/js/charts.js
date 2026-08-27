@@ -1,13 +1,11 @@
 /** Charts for Nexus report PDF output: stacked timelines + platform donut. */
 
 import {
-  STANCE_ORDER,
-  STANCE_COLORS,
-  STANCE_LABELS,
   PLATFORM_ORDER,
   PLATFORM_LABELS,
   PLATFORM_COLORS,
-} from "./constants.js?v=2026-07-30-e20jp";
+} from "./constants.js?v=2026-08-26-hub-images";
+import { stanceColor, stanceLabel } from "../../shared/js/theme.js?v=2026-08-21-anti-orange";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -53,8 +51,9 @@ export function daysForSeriesBucket(bucket, window = {}) {
   if (axisMin > axisMax) return [];
 
   const active = new Set();
-  for (const key of STANCE_ORDER) {
-    for (const day of Object.keys(bucket.series[key] || {})) {
+  const series = bucket.series || {};
+  for (const key of Object.keys(series)) {
+    for (const day of Object.keys(series[key] || {})) {
       if (day < axisMin || day > axisMax) continue;
       active.add(day);
     }
@@ -79,6 +78,10 @@ export function daysForSeriesBucket(bucket, window = {}) {
  */
 export function renderStackedTimeline(container, opts) {
   const { days, series } = opts;
+  const stanceOrder =
+    Array.isArray(opts.stanceOrder) && opts.stanceOrder.length
+      ? opts.stanceOrder
+      : Object.keys(series || {});
   if (!days.length) {
     container.innerHTML = `<p class="muted">No dated posts.</p>`;
     return;
@@ -93,7 +96,7 @@ export function renderStackedTimeline(container, opts) {
   let maxY = 0;
   for (const day of days) {
     let total = 0;
-    for (const key of STANCE_ORDER) {
+    for (const key of stanceOrder) {
       total += series[key]?.[day] || 0;
     }
     if (total > maxY) maxY = total;
@@ -140,7 +143,7 @@ export function renderStackedTimeline(container, opts) {
   days.forEach((day, i) => {
     const x = (i / days.length) * innerW + barGap / 2;
     let yBase = innerH;
-    for (const key of STANCE_ORDER) {
+    for (const key of stanceOrder) {
       const count = series[key]?.[day] || 0;
       if (!count) continue;
       const h = (count / maxY) * innerH;
@@ -149,7 +152,7 @@ export function renderStackedTimeline(container, opts) {
       rect.setAttribute("y", String(yBase - h));
       rect.setAttribute("width", String(barW));
       rect.setAttribute("height", String(Math.max(0.5, h)));
-      rect.setAttribute("fill", STANCE_COLORS[key]);
+      rect.setAttribute("fill", stanceColor(key));
       rect.setAttribute("class", "chart-seg");
       g.appendChild(rect);
       yBase -= h;
@@ -267,11 +270,13 @@ export function renderPlatformDonut(container, opts) {
   container.replaceChildren(wrap);
 }
 
-export function stanceLegendHtml() {
-  return STANCE_ORDER.map(
-    (key) =>
-      `<span class="legend-item"><span class="legend-swatch" style="background:${STANCE_COLORS[key]}"></span>${STANCE_LABELS[key]}</span>`
-  ).join("");
+export function stanceLegendHtml(stanceOrder = []) {
+  return stanceOrder
+    .map(
+      (key) =>
+        `<span class="legend-item"><span class="legend-swatch" style="background:${stanceColor(key)}"></span>${escapeHtml(stanceLabel(key))}</span>`
+    )
+    .join("");
 }
 
 function donutSlicePath(cx, cy, rOuter, rInner, a0, a1) {

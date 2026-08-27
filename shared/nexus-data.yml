@@ -1,9 +1,5 @@
-# Nexus input data — edit this file when swapping CSV / graph dumps.
-# Paths are relative to the repository root (where you run `python3 -m http.server`).
+# Optional shared defaults (fallback image cache-bust).
+# Dataset paths and per-hub image folders live in shared/js/corpora.js.
+# Per-hub PNG maps: images/<corpus>/theme-images.json
 
-csv: CJP_Master_Nexus_Input_30_July.csv
-graph: graph2_parent_topic_topic_30_07.json
-images_base: images/
-overview_image: narrative-graph-fixed.png
-images_version: "1785420941221"
-timeline_start: "2026-07-01"
+images_version: "1787825571792"

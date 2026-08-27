@@ -11,23 +11,33 @@
     <header class="hub-header">
       <p class="hub-kicker">Nexus</p>
       <h1 class="hub-title">Graphs</h1>
-      <p class="hub-sub">Choose a view to explore.</p>
+      <p class="hub-sub">Pick a dataset, then open a view.</p>
     </header>
 
-    <nav class="hub-nav" aria-label="Graph views">
-      <a class="hub-link" href="platform-profiles/">
+    <div
+      class="hub-tabs"
+      role="tablist"
+      aria-label="Dataset"
+      id="hub-tabs"
+    ></div>
+
+    <p class="hub-corpus-meta" id="hub-corpus-meta" hidden></p>
+
+    <nav class="hub-nav" aria-label="Graph views" id="hub-nav">
+      <a class="hub-link" data-view="profiles" href="platform-profiles/">
         <span class="hub-link-label">Profiles</span>
         <span class="hub-link-desc">Platform account graph</span>
       </a>
-      <a class="hub-link" href="narratives-graph/">
+      <a class="hub-link" data-view="themes" href="narratives-graph/">
         <span class="hub-link-label">Themes</span>
         <span class="hub-link-desc">Theme → topic → posts</span>
       </a>
-      <a class="hub-link" href="reports-nexus/">
+      <a class="hub-link" data-view="report" href="reports-nexus/">
         <span class="hub-link-label">Report</span>
         <span class="hub-link-desc">Nexus PDF report by theme</span>
       </a>
     </nav>
   </main>
+  <script type="module" src="hub.js?v=2026-08-26-hub-images"></script>
 </body>
 </html>

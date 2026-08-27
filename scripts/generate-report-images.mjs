@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 /**
  * Run the live narratives-graph simulation, then capture canvas PNGs for the
- * report overview + each theme (stance colors on) into images/.
+ * report overview + each theme (stance colors on) into images/<corpus>/.
  *
  * Usage (from repo root):
  *   npm i
  *   npx playwright install chromium
- *   npm run generate-report-images
+ *   npm run generate-report-images              # all hubs
+ *   npm run generate-report-images -- stk       # one hub
+ *   npm run generate-report-images -- stk dnp   # several
+ *   npm run generate-report-images -- --list
  */
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
@@ -14,6 +17,11 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import {
+  CORPUS_ORDER,
+  getCorpus,
+  listCorpora,
+} from "../shared/js/corpora.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -21,33 +29,11 @@ const PORT = Number(process.env.NEXUS_PORT || 8000);
 const BASE = `http://127.0.0.1:${PORT}`;
 const SETTLE_TIMEOUT_MS = Number(process.env.NEXUS_SETTLE_TIMEOUT_MS || 90_000);
 const ZOOM_WAIT_MS = Number(process.env.NEXUS_ZOOM_WAIT_MS || 550);
-
 const YAML_PATH = path.join(ROOT, "shared", "nexus-data.yml");
-const CONSTANTS_PATH = path.join(ROOT, "reports-nexus", "js", "constants.js");
-const IMAGES_DIR = path.join(ROOT, "images");
+const IMAGES_ROOT = path.join(ROOT, "images");
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
-}
-
-function parseSimpleYaml(text) {
-  const out = Object.create(null);
-  for (const raw of String(text || "").split(/\r?\n/)) {
-    const line = raw.trim();
-    if (!line || line.startsWith("#")) continue;
-    const idx = line.indexOf(":");
-    if (idx <= 0) continue;
-    const key = line.slice(0, idx).trim();
-    let value = line.slice(idx + 1).trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-    if (key) out[key] = value;
-  }
-  return out;
 }
 
 function slugifyTheme(name) {
@@ -62,54 +48,100 @@ function slugifyTheme(name) {
   );
 }
 
-function parseThemeImageMap(source) {
-  const match = source.match(/export const THEME_IMAGE = \{([\s\S]*?)\n\};/);
-  if (!match) throw new Error("Could not find THEME_IMAGE in constants.js");
-  const map = Object.create(null);
-  const re = /"((?:\\.|[^"\\])*)"\s*:\s*"((?:\\.|[^"\\])*)"/g;
-  let m;
-  while ((m = re.exec(match[1]))) {
-    map[JSON.parse(`"${m[1]}"`)] = JSON.parse(`"${m[2]}"`);
-  }
-  return map;
+function printHelp() {
+  const ids = CORPUS_ORDER.join(", ");
+  console.log(`Capture report PNGs per hub into images/<corpus>/.
+
+Usage:
+  npm run generate-report-images                 all hubs (${ids})
+  npm run generate-report-images -- <id>…        one or more hubs
+  npm run generate-report-images -- --corpus=stk,ap
+  npm run generate-report-images -- --list
+  npm run generate-report-images -- --help
+`);
 }
 
-function formatThemeImageMap(map) {
-  const lines = Object.entries(map).map(([theme, file]) => {
-    const key = JSON.stringify(theme);
-    const val = JSON.stringify(file);
-    if (key.length + val.length > 70) {
-      return `  ${key}:\n    ${val},`;
+function parseArgs(argv) {
+  const raw = argv.slice(2);
+  if (raw.includes("-h") || raw.includes("--help")) return { help: true };
+
+  const ids = [];
+  for (let i = 0; i < raw.length; i++) {
+    const arg = raw[i];
+    if (!arg || arg === "--") continue;
+    if (arg === "--list") return { list: true };
+    if (arg === "--corpus" || arg === "-c") {
+      const next = raw[++i];
+      if (!next) throw new Error("Missing value for --corpus");
+      ids.push(...next.split(/[, ]+/).filter(Boolean));
+      continue;
     }
-    return `  ${key}: ${val},`;
-  });
-  return `export const THEME_IMAGE = {\n${lines.join("\n")}\n};\n`;
-}
-
-async function patchThemeImageMap(map) {
-  const source = await readFile(CONSTANTS_PATH, "utf8");
-  if (!/export const THEME_IMAGE = \{[\s\S]*?\n\};/.test(source)) {
-    throw new Error("Could not patch THEME_IMAGE in constants.js");
+    if (arg.startsWith("--corpus=")) {
+      ids.push(...arg.slice("--corpus=".length).split(/[, ]+/).filter(Boolean));
+      continue;
+    }
+    if (arg.startsWith("-")) {
+      throw new Error(`Unknown flag: ${arg}`);
+    }
+    ids.push(...arg.split(",").filter(Boolean));
   }
-  const next = source.replace(
-    /export const THEME_IMAGE = \{[\s\S]*?\n\};/,
-    formatThemeImageMap(map).trimEnd()
-  );
-  await writeFile(CONSTANTS_PATH, next, "utf8");
+
+  if (!ids.length) {
+    return { corpora: CORPUS_ORDER.map((id) => getCorpus(id)).filter(Boolean) };
+  }
+
+  const corpora = [];
+  const seen = new Set();
+  for (const rawId of ids) {
+    const corpus = getCorpus(rawId);
+    if (!corpus) {
+      const known = CORPUS_ORDER.join(", ");
+      throw new Error(`Unknown hub "${rawId}". Known: ${known}`);
+    }
+    if (seen.has(corpus.id)) continue;
+    seen.add(corpus.id);
+    corpora.push(corpus);
+  }
+  return { corpora };
 }
 
-/** Bump images_version in nexus-data.yml so the report busts browser image cache. */
-async function patchImagesVersion(version) {
+async function readManifest(dir) {
+  const file = path.join(dir, "theme-images.json");
+  try {
+    const raw = JSON.parse(await readFile(file, "utf8"));
+    const themes =
+      raw?.themes && typeof raw.themes === "object" && !Array.isArray(raw.themes)
+        ? { ...raw.themes }
+        : {};
+    return {
+      overview: raw?.overview || "narrative-graph.png",
+      themes,
+      version: raw?.version ? String(raw.version) : "",
+    };
+  } catch {
+    return { overview: "narrative-graph.png", themes: {}, version: "" };
+  }
+}
+
+async function writeManifest(dir, manifest) {
+  const body = {
+    overview: manifest.overview || "narrative-graph.png",
+    version: String(manifest.version || ""),
+    themes: manifest.themes || {},
+  };
+  await writeFile(
+    path.join(dir, "theme-images.json"),
+    `${JSON.stringify(body, null, 2)}\n`,
+    "utf8"
+  );
+}
+
+async function patchYamlImagesVersion(version) {
   let text = await readFile(YAML_PATH, "utf8");
   if (/^images_version:\s*.+$/m.test(text)) {
     text = text.replace(/^images_version:\s*.+$/m, `images_version: "${version}"`);
   } else {
-    const line = `images_version: "${version}"`;
-    if (/^overview_image:\s*.+$/m.test(text)) {
-      text = text.replace(/^(overview_image:\s*.+)$/m, `$1\n${line}`);
-    } else {
-      text = `${text.trimEnd()}\n${line}\n`;
-    }
+    text = `${text.trimEnd()}\nimages_version: "${version}"\n`;
   }
   await writeFile(YAML_PATH, text, "utf8");
 }
@@ -147,7 +179,7 @@ async function ensureServer() {
     } catch {
       /* retry */
     }
-    await new Promise((r) => setTimeout(r, 150));
+    await sleep(150);
   }
   if (!booted) {
     child.kill("SIGTERM");
@@ -180,22 +212,101 @@ async function capturePng(page) {
   return dataUrlToBuffer(dataUrl);
 }
 
-async function main() {
-  const yaml = parseSimpleYaml(await readFile(YAML_PATH, "utf8"));
-  const imagesBase = (yaml.images_base || "images/").replace(/\/?$/, "/");
-  const overviewFile = yaml.overview_image || "narrative-graph.png";
-  if (!imagesBase.startsWith("images")) {
-    console.warn(`images_base is "${imagesBase}" — writing under repo images/ anyway`);
+function uniqueFilename(base, usedFiles) {
+  let candidate = base;
+  let n = 2;
+  while (usedFiles.has(candidate)) {
+    candidate = base.replace(/\.png$/i, `_${n}.png`);
+    n += 1;
+  }
+  return candidate;
+}
+
+async function captureCorpus(page, corpus) {
+  const imagesDir = path.join(ROOT, corpus.images_base || `images/${corpus.id}/`);
+  const overviewFile = corpus.overview_image || "narrative-graph.png";
+  await mkdir(imagesDir, { recursive: true });
+
+  const prev = await readManifest(imagesDir);
+  const themeMap = prev.themes;
+  const usedFiles = new Set(Object.values(themeMap));
+  usedFiles.add(overviewFile);
+
+  const url = `${BASE}/narratives-graph/?corpus=${encodeURIComponent(corpus.id)}`;
+  console.log(`\n[${corpus.label}] Loading ${url}`);
+  await page.goto(url, {
+    waitUntil: "networkidle",
+    timeout: SETTLE_TIMEOUT_MS,
+  });
+
+  console.log(`[${corpus.label}] Waiting for simulation to settle …`);
+  await waitForCapture(page);
+
+  const written = [];
+  console.log(`[${corpus.label}] Capturing overview → ${overviewFile}`);
+  await page.evaluate(() => window.__nexusCapture.fitOverview());
+  await sleep(ZOOM_WAIT_MS);
+  await writeFile(path.join(imagesDir, overviewFile), await capturePng(page));
+  written.push(overviewFile);
+
+  const themes = await page.evaluate(() => window.__nexusCapture.listThemes());
+  console.log(`[${corpus.label}] Capturing ${themes.length} theme(s) …`);
+
+  const nextMap = {};
+  for (const theme of themes) {
+    let filename = themeMap[theme];
+    if (!filename) {
+      filename = uniqueFilename(`${slugifyTheme(theme)}.png`, usedFiles);
+      console.log(`  + new theme map: "${theme}" → ${filename}`);
+    }
+    usedFiles.add(filename);
+    nextMap[theme] = filename;
+
+    console.log(`  ${theme} → ${filename}`);
+    await page.evaluate((name) => window.__nexusCapture.focusTheme(name), theme);
+    await sleep(ZOOM_WAIT_MS);
+    await writeFile(path.join(imagesDir, filename), await capturePng(page));
+    written.push(filename);
   }
 
-  await mkdir(IMAGES_DIR, { recursive: true });
+  const version = String(Date.now());
+  await writeManifest(imagesDir, {
+    overview: overviewFile,
+    version,
+    themes: nextMap,
+  });
 
-  let themeMap = parseThemeImageMap(await readFile(CONSTANTS_PATH, "utf8"));
-  const usedFiles = new Set(Object.values(themeMap));
+  const relDir = path.relative(ROOT, imagesDir);
+  console.log(`[${corpus.label}] Wrote ${path.join(relDir, "theme-images.json")} (v=${version})`);
+  for (const f of written) console.log(`  ${path.join(relDir, f)}`);
+  return written.length;
+}
+
+async function main() {
+  const args = parseArgs(process.argv);
+  if (args.help) {
+    printHelp();
+    return;
+  }
+  if (args.list) {
+    for (const corpus of listCorpora()) {
+      console.log(`${corpus.id}\t${corpus.label}\t${corpus.images_base}`);
+    }
+    return;
+  }
+
+  const corpora = args.corpora;
+  if (!corpora.length) {
+    throw new Error("No hubs to capture");
+  }
+  console.log(
+    `Hubs: ${corpora.map((c) => c.id).join(", ")}  (images under ${path.relative(ROOT, IMAGES_ROOT)}/<id>/)`
+  );
 
   const server = await ensureServer();
   const browser = await chromium.launch({ headless: true });
-  const written = [];
+  const failures = [];
+  let pngCount = 0;
 
   try {
     const page = await browser.newPage({
@@ -203,64 +314,31 @@ async function main() {
       deviceScaleFactor: 2,
     });
 
-    console.log("Loading narratives-graph …");
-    await page.goto(`${BASE}/narratives-graph/`, {
-      waitUntil: "networkidle",
-      timeout: SETTLE_TIMEOUT_MS,
-    });
-
-    console.log("Waiting for simulation to settle …");
-    await waitForCapture(page);
-
-    console.log(`Capturing overview → ${overviewFile}`);
-    await page.evaluate(() => window.__nexusCapture.fitOverview());
-    await sleep(ZOOM_WAIT_MS);
-    await writeFile(path.join(IMAGES_DIR, overviewFile), await capturePng(page));
-    written.push(overviewFile);
-
-    const themes = await page.evaluate(() => window.__nexusCapture.listThemes());
-    console.log(`Capturing ${themes.length} theme(s) …`);
-
-    const nextMap = Object.create(null);
-    for (const theme of themes) {
-      let filename = themeMap[theme];
-      if (!filename) {
-        let base = `${slugifyTheme(theme)}.png`;
-        let candidate = base;
-        let n = 2;
-        while (usedFiles.has(candidate)) {
-          candidate = base.replace(/\.png$/i, `_${n}.png`);
-          n += 1;
-        }
-        filename = candidate;
-        console.log(`  + new theme map: "${theme}" → ${filename}`);
+    for (const corpus of corpora) {
+      try {
+        pngCount += await captureCorpus(page, corpus);
+      } catch (err) {
+        failures.push(corpus.id);
+        console.error(`[${corpus.label}] FAILED:`, err?.message || err);
       }
-      usedFiles.add(filename);
-      nextMap[theme] = filename;
-
-      console.log(`  ${theme} → ${filename}`);
-      await page.evaluate((name) => window.__nexusCapture.focusTheme(name), theme);
-      await sleep(ZOOM_WAIT_MS);
-      await writeFile(path.join(IMAGES_DIR, filename), await capturePng(page));
-      written.push(filename);
     }
 
-    themeMap = nextMap;
-    await patchThemeImageMap(themeMap);
-    const imagesVersion = String(Date.now());
-    await patchImagesVersion(imagesVersion);
-    console.log(`Updated THEME_IMAGE in ${path.relative(ROOT, CONSTANTS_PATH)}`);
-    console.log(`Set images_version=${imagesVersion} (report cache bust)`);
-
-    console.log("\nWrote:");
-    for (const f of written) console.log(`  images/${f}`);
-    console.log(`Done (${written.length} PNG(s)).`);
+    if (!failures.length) {
+      const imagesVersion = String(Date.now());
+      await patchYamlImagesVersion(imagesVersion);
+      console.log(`\nSet shared images_version=${imagesVersion} (fallback cache bust)`);
+    }
   } finally {
     await browser.close();
-    if (server) {
-      server.kill("SIGTERM");
-    }
+    if (server) server.kill("SIGTERM");
   }
+
+  if (failures.length) {
+    throw new Error(
+      `Image capture failed for: ${failures.join(", ")} (${pngCount} PNG(s) from the rest)`
+    );
+  }
+  console.log(`\nDone (${pngCount} PNG(s) across ${corpora.length} hub(s)).`);
 }
 
 main().catch((err) => {

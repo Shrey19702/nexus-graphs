@@ -1,6 +1,6 @@
 # Nexus Report
 
-Print-ready HTML report built from the theme graph CSV + theme/topic graph.
+Print-ready HTML report built from the selected hub’s CSV + theme/topic graph.
 
 ## Open locally
 
@@ -11,7 +11,7 @@ python3 -m http.server
 # or: ./run.sh
 ```
 
-Then open [http://localhost:8000/reports-nexus/](http://localhost:8000/reports-nexus/).
+Then open [http://localhost:8000/reports-nexus/?corpus=stk](http://localhost:8000/reports-nexus/?corpus=stk) (or pick a hub on `/`).
 
 ## Export PDF
 
@@ -22,34 +22,32 @@ Then open [http://localhost:8000/reports-nexus/](http://localhost:8000/reports-n
 
 ## Inputs
 
-Edit [`shared/nexus-data.yml`](../shared/nexus-data.yml) to point at the current CSV / graph files (paths are relative to the repo root):
-
-```yaml
-csv: narratives-graph/CJP_Master_Nexus_Input_23_July.csv
-graph: narratives-graph/graph2_parent_topic_topic_23_07.json
-images_base: images/
-overview_image: narrative-graph.png
-timeline_start: "2026-07-01"
-```
+Dataset paths are per hub in [`shared/js/corpora.js`](../shared/js/corpora.js) (`csv`, `graph`, `images_base`). Hub tabs / `?corpus=` select which entry is used.
 
 | File | Role |
 |------|------|
-| Path in `shared/nexus-data.yml` → `csv` | Posts, stance, `posted_at`, platform, theme/topic |
-| Path in `shared/nexus-data.yml` → `graph` | Canonical theme order |
-| `images/narrative-graph.png` | Cover overview image |
-| `images/*.png` | Per-theme images |
+| `corpora.js` → `csv` | Posts, stance, optional `posted_at` / platform, theme/topic |
+| `corpora.js` → `graph` | Canonical theme order |
+| `images/<corpus>/narrative-graph.png` | Cover overview image |
+| `images/<corpus>/*.png` | Per-theme images |
+| `images/<corpus>/theme-images.json` | Theme name → PNG map + cache-bust version |
+
+Each hub has its own folder (`images/cjp/`, `images/ap/`, `images/stk/`, `images/dnp/`) so regenerating one hub does not overwrite another.
 
 ### Regenerate graph images
 
-After swapping CSV/graph (or when themes change), regenerate overview + per-theme PNGs from the live narratives-graph simulation:
+After swapping CSV/graph (or when themes change), capture overview + per-theme PNGs from the live narratives-graph simulation:
 
 ```bash
 npm i
 npx playwright install chromium
-npm run generate-report-images
+npm run generate-report-images              # all hubs
+npm run generate-report-images -- stk       # one hub
+npm run generate-report-images -- stk dnp   # several
+npm run generate-report-images -- --list
 ```
 
-This writes into `images/`, updates `overview_image` target from YAML, syncs `THEME_IMAGE` in [`js/constants.js`](js/constants.js) (including any new themes), and bumps `images_version` so the report does not show stale cached PNGs.
+This writes into `images/<corpus>/`, updates that hub’s `theme-images.json`, and bumps a per-hub `version` so the report does not show stale cached PNGs.
 
 ## Report contents
 

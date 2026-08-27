@@ -24,7 +24,7 @@ body {
 }
 
 .hub {
-  width: min(480px, 100%);
+  width: min(520px, 100%);
   display: flex;
   flex-direction: column;
   gap: 28px;
@@ -56,6 +56,57 @@ body {
   color: #6b7280;
 }
 
+.hub-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px;
+  background: #eef1f4;
+  border-radius: 10px;
+}
+
+.hub-tab {
+  flex: 1 1 0;
+  min-width: 64px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #4b5563;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.hub-tab:hover {
+  color: #1f2937;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.hub-tab[aria-selected="true"] {
+  background: #ffffff;
+  color: #1f2937;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.hub-tab:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.hub-corpus-meta {
+  margin-top: -12px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #6b7280;
+}
+
 .hub-nav {
   display: flex;
   flex-direction: column;
@@ -75,7 +126,8 @@ body {
   transition:
     border-color 0.15s ease,
     background 0.15s ease,
-    transform 0.15s ease;
+    transform 0.15s ease,
+    opacity 0.15s ease;
 }
 
 .hub-link:hover {
@@ -87,6 +139,12 @@ body {
 .hub-link:focus-visible {
   outline: 2px solid #2563eb;
   outline-offset: 2px;
+}
+
+.hub-link.is-disabled {
+  opacity: 0.42;
+  pointer-events: none;
+  transform: none;
 }
 
 .hub-link-label {
